@@ -1,0 +1,46 @@
+{
+  "project_info": {
+    "project_number": "1076848134286",
+    "project_id": "pump-coach",
+    "storage_bucket": "pump-coach.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1076848134286:android:6e6bb915dbc60ba4d061df",
+        "android_client_info": {
+          "package_name": "com.thebreastfeedingmama.pumpcoach"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1076848134286-utscj7qepurp9nd4bituamok51ng3gh4.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCRdHnCLHt1lkjFNIMXNap0W2RZhVjQmIk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1076848134286-utscj7qepurp9nd4bituamok51ng3gh4.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "1076848134286-3snb3nrggk2qr6dharasvsuq3c9gg84r.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "console.cloud.google.com"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

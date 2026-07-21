@@ -1,0 +1,58 @@
+/** @type {import('tailwindcss').Config} */
+module.exports = {
+  content: [
+    "./app/**/*.{js,jsx,ts,tsx}",
+    "./components/**/*.{js,jsx,ts,tsx}",
+    "./hooks/**/*.{js,jsx,ts,tsx}",
+  ],
+  presets: [require("nativewind/preset")],
+  theme: {
+    extend: {
+      colors: {
+        primary: {
+          DEFAULT: "#4A5E60",
+          50:  "#EBF3F6",
+          100: "#E5EFF3",
+          200: "#CBDBE0",
+          300: "#A8C3CA",
+          400: "#84ABB4",
+          500: "#4A5E60",
+          600: "#3A4C4E",
+          700: "#2E3F40",
+          800: "#1E2A2B",
+          900: "#0F1516",
+        },
+        mauve:        "#A5818E",
+        "mauve-light":"#CEC5CC",
+        "mauve-dark": "#5A7274",
+        sage:         "#7A754B",
+        amber:        "#875A38",
+        cream:        "#FDF6EE",
+        "cream-deep": "#F3ECE4",
+        surface:      "#FFFFFF",
+        muted:        "#F3ECE4",
+        border:       "#E8DDD4",
+        ink:          "#442E1D",
+        "ink-2":      "#7A5C44",
+        "ink-3":      "#B09880",
+        // Extended palette
+        peach:        "#EEA890",
+        terracotta:   "#875A38",
+        mustard:      "#E2C374",
+        blush:        "#CEC5CC",
+        powder:       "#CBDBE0",
+        olive:        "#7A754B",
+        butter:       "#DFDBA9",
+        espresso:     "#442E1D",
+      },
+      fontFamily: {
+        serif:       ["Fraunces_500Medium"],
+        sans:        ["Nunito_400Regular"],
+        "sans-semi": ["Nunito_600SemiBold"],
+        "sans-bold": ["Nunito_700Bold"],
+        "sans-xbold":["Nunito_800ExtraBold"],
+      },
+    },
+  },
+  plugins: [],
+};
