@@ -16,6 +16,7 @@ import { LETDOWN_OPTIONS, COLORS, SERIF } from "../../lib/constants";
 import { PainLevelPicker } from "../../components/ui/PainLevelPicker";
 import { useUnit } from "../../hooks/useUnit";
 import { ozToMl, mlToOz, formatUnit } from "../../lib/units";
+import { PhaseSettings } from "../../components/PhaseSettings";
 
 const DURATION_PRESETS = [10, 15, 20, 25, 30, 40];
 const LOG_BY_TOTAL_KEY = "log_by_total";
@@ -290,6 +291,66 @@ export default function LogSessionScreen() {
                 placeholder="Custom minutes"
                 keyboardType="number-pad"
                 autoCapitalize="none"
+              />
+            </View>
+
+            {/* Phase Selection */}
+            <View>
+              <Text className="text-sm font-sans-semi text-ink-2 mb-2">Pump phases</Text>
+              <View className="flex-row gap-2">
+                {(["massage", "expression"] as const).map((p) => (
+                  <Pressable
+                    key={p}
+                    onPress={() => setActivePhase(activePhase === p ? null : p)}
+                    className={`flex-1 py-2.5 px-3 rounded-lg border ${
+                      activePhase === p ? "bg-primary border-primary" : "bg-muted border-border"
+                    }`}
+                  >
+                    <Text className={`text-xs font-sans-semi text-center capitalize ${
+                      activePhase === p ? "text-white" : "text-ink"
+                    }`}>
+                      {p}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+
+            {/* Massage Phase Settings */}
+            {(activePhase === "massage" || massageDuration) && (
+              <PhaseSettings
+                phase="massage"
+                duration={massageDuration}
+                suctionLevel={massageSuction}
+                cycleSpeed={massageCycleSpeed}
+                onDurationChange={setMassageDuration}
+                onSuctionChange={setMassageSuction}
+                onCycleSpeedChange={setMassageCycleSpeed}
+              />
+            )}
+
+            {/* Expression Phase Settings */}
+            {(activePhase === "expression" || expressionDuration) && (
+              <PhaseSettings
+                phase="expression"
+                duration={expressionDuration}
+                suctionLevel={expressionSuction}
+                cycleSpeed={expressionCycleSpeed}
+                onDurationChange={setExpressionDuration}
+                onSuctionChange={setExpressionSuction}
+                onCycleSpeedChange={setExpressionCycleSpeed}
+              />
+            )}
+
+            {/* Time to Letdown */}
+            <View>
+              <Text className="text-sm font-sans-semi text-ink-2 mb-2">Time to letdown (minutes)</Text>
+              <Input
+                value={timeToLetdownMin}
+                onChangeText={setTimeToLetdownMin}
+                placeholder="Optional"
+                keyboardType="number-pad"
+                maxLength={3}
               />
             </View>
 
