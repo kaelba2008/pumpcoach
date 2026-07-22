@@ -78,16 +78,19 @@ export default function ViewerInviteScreen() {
     if (!session?.user || !id) return;
     setStep("accepting");
 
-    // Create viewer relationship
+    // Create viewer relationship (or update if it already exists)
     const { error: vaError } = await supabase.from("viewer_accounts").upsert({
       owner_id:  owner,
       viewer_id: session.user.id,
     });
 
     if (vaError) {
-      Alert.alert("Error", vaError.message);
-      setStep("sign-in");
-      return;
+      // Ignore "duplicate key" errors — the viewer relationship already exists, which is fine
+      if (!vaError.message?.includes("duplicate key")) {
+        Alert.alert("Error", vaError.message);
+        setStep("sign-in");
+        return;
+      }
     }
 
     // Mark invitation accepted

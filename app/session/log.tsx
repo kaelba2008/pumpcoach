@@ -52,6 +52,16 @@ export default function LogSessionScreen() {
   const [userPumps,          setUserPumps]          = useState<UserPump[]>([]);
   const [selectedPumpName,   setSelectedPumpName]   = useState<string | null>(null);
 
+  // Dual-phase settings
+  const [massageDuration,         setMassageDuration]         = useState<string>("");
+  const [massageSuction,          setMassageSuction]          = useState<number | null>(null);
+  const [massageCycleSpeed,       setMassageCycleSpeed]       = useState<number | null>(null);
+  const [expressionDuration,      setExpressionDuration]      = useState<string>("");
+  const [expressionSuction,       setExpressionSuction]       = useState<number | null>(null);
+  const [expressionCycleSpeed,    setExpressionCycleSpeed]    = useState<number | null>(null);
+  const [timeToLetdownMin,        setTimeToLetdownMin]        = useState<string>("");
+  const [activePhase,             setActivePhase]             = useState<"massage" | "expression" | null>(null);
+
   // Load log-by-total preference + pumps
   useEffect(() => {
     AsyncStorage.getItem(LOG_BY_TOTAL_KEY).then((val) => {
@@ -106,22 +116,35 @@ export default function LogSessionScreen() {
     }
 
     setSaving(true);
+
+    // Dual-phase data (if provided)
+    const massageDurationSec = massageDuration ? parseInt(massageDuration) * 60 : null;
+    const expressionDurationSec = expressionDuration ? parseInt(expressionDuration) * 60 : null;
+    const timeToLetdownSec = timeToLetdownMin ? parseInt(timeToLetdownMin) * 60 : null;
+
     const { error } = await supabase.from("pump_sessions").insert({
-      user_id:              user.id,
-      started_at:           startedAt.toISOString(),
-      ended_at:             endedAt.toISOString(),
-      duration_sec:         durationMin * 60,
-      left_oz:              finalLeftOz,
-      right_oz:             finalRightOz,
-      notes:                notes.trim() || null,
-      pain_level:           painLevel,
-      letdown_quality:      letdown,
-      session_type:         "pump",
-      pumped_after_nursing: pumpedAfterNursing,
-      pump_name:            selectedPumpName,
-      suction_level:        suctionLevel,
-      cycle_speed:          cycleSpeed,
-      pump_mode:            pumpMode,
+      user_id:                    user.id,
+      started_at:                 startedAt.toISOString(),
+      ended_at:                   endedAt.toISOString(),
+      duration_sec:               durationMin * 60,
+      left_oz:                    finalLeftOz,
+      right_oz:                   finalRightOz,
+      notes:                      notes.trim() || null,
+      pain_level:                 painLevel,
+      letdown_quality:            letdown,
+      session_type:               "pump",
+      pumped_after_nursing:       pumpedAfterNursing,
+      pump_name:                  selectedPumpName,
+      suction_level:              suctionLevel,
+      cycle_speed:                cycleSpeed,
+      pump_mode:                  pumpMode,
+      massage_suction_level:      massageSuction,
+      massage_cycle_speed:        massageCycleSpeed,
+      massage_duration_sec:       massageDurationSec,
+      expression_suction_level:   expressionSuction,
+      expression_cycle_speed:     expressionCycleSpeed,
+      expression_duration_sec:    expressionDurationSec,
+      time_to_letdown_sec:        timeToLetdownSec,
     });
     setSaving(false);
     if (error) { Alert.alert("Error saving", error.message); return; }

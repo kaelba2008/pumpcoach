@@ -63,6 +63,13 @@ export interface PumpSession {
   suction_level: number | null;
   cycle_speed: number | null;
   pump_mode: PumpMode | null;
+  massage_suction_level: number | null;
+  massage_cycle_speed: number | null;
+  massage_duration_sec: number | null;
+  expression_suction_level: number | null;
+  expression_cycle_speed: number | null;
+  expression_duration_sec: number | null;
+  time_to_letdown_sec: number | null;
   created_at: string;
 }
 

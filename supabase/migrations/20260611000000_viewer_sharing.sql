@@ -48,6 +48,10 @@ CREATE POLICY "viewer_see_own_access" ON viewer_accounts
 CREATE POLICY "viewer_insert_own_access" ON viewer_accounts
   FOR INSERT WITH CHECK (viewer_id = auth.uid());
 
+-- Viewer can update their own viewer relationship (idempotent accepts)
+CREATE POLICY "viewer_update_own_access" ON viewer_accounts
+  FOR UPDATE USING (viewer_id = auth.uid());
+
 -- ── RLS: let viewers read owner data ─────────────────────────────────────────
 
 -- pump_sessions: viewers can SELECT
