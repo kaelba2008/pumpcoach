@@ -368,7 +368,19 @@ export default function LogSessionScreen() {
             )}
             {isPremium && userPumps.length > 0 && (
               <View>
-                <Text className="text-sm font-sans-semi text-ink-2 mb-2">Which pump?</Text>
+                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                  <Text className="text-sm font-sans-semi text-ink-2">Which pump?</Text>
+                  <Pressable
+                    onPress={() => router.push("/(tabs)/profile" as any)}
+                    style={{
+                      width: 28, height: 28, borderRadius: 14,
+                      backgroundColor: COLORS.primary,
+                      alignItems: "center", justifyContent: "center",
+                    }}
+                  >
+                    <Text style={{ fontSize: 16, fontWeight: "600", color: "#fff" }}>+</Text>
+                  </Pressable>
+                </View>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
                   {userPumps.map((pump) => {
                     const selected = selectedPumpName === pump.name;
