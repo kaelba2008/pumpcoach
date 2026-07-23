@@ -85,12 +85,18 @@ export default function ViewerInviteScreen() {
     });
 
     if (vaError) {
-      // Ignore "duplicate key" errors — the viewer relationship already exists, which is fine
-      if (!vaError.message?.includes("duplicate key")) {
+      // Ignore constraint violation errors — the viewer relationship already exists, which is fine
+      const isDuplicateOrConstraint =
+        vaError.message?.includes("duplicate key") ||
+        vaError.message?.includes("violates unique constraint") ||
+        vaError.code === "23505"; // PostgreSQL unique constraint violation code
+
+      if (!isDuplicateOrConstraint) {
         Alert.alert("Error", vaError.message);
         setStep("sign-in");
         return;
       }
+      // If it's a duplicate/constraint error, continue — the relationship is already there
     }
 
     // Mark invitation accepted
