@@ -69,7 +69,6 @@ export function OzInput({ label, value, onChange, unit = "oz" }: OzInputProps) {
             onSubmitEditing={Keyboard.dismiss}
             placeholder="0"
             placeholderTextColor={COLORS.ink3}
-            selectTextOnFocus
           />
           <Text className="text-xs text-ink-2 -mt-1">{unit}</Text>
         </View>
