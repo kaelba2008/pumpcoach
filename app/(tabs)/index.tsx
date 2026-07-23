@@ -17,6 +17,7 @@ import { DailyTip } from "../../components/DailyTip";
 import { ConsultRecommendation } from "../../components/ConsultRecommendation";
 import { PremiumTeaser } from "../../components/ui/PremiumTeaser";
 import { NursingEntryModal } from "../../components/NursingEntryModal";
+import { SessionAnalysis } from "../../components/SessionAnalysis";
 import { fmtOz, babyAgeLabel } from "../../lib/formatters";
 import { useUnit } from "../../hooks/useUnit";
 import { formatUnit, ozToMl, mlToOz } from "../../lib/units";
@@ -433,6 +434,13 @@ export default function DashboardScreen() {
         </View>
 
         <View style={{ paddingHorizontal: 20, marginTop: -16 }}>
+
+          {/* ── Session Analysis ────────────────────────── */}
+          {todaySessions.length > 0 && (
+            <View style={{ marginBottom: 16 }}>
+              <SessionAnalysis sessions={todaySessions} unit={unit} />
+            </View>
+          )}
 
           {/* ── Trial ending banner ─────────────────────── */}
           {isPremium && trialEndsAt && differenceInDays(trialEndsAt, new Date()) <= 2 && (
