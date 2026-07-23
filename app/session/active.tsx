@@ -130,6 +130,20 @@ export default function ActiveSessionScreen() {
     const { active } = store;
     if (!active || !user) return;
 
+    // Validate date — prevent future dates or sessions from >30 days ago
+    const startedAt = new Date(active.startedAt);
+    const now = new Date();
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    if (startedAt > now) {
+      Alert.alert("Invalid session", "Session cannot start in the future");
+      return;
+    }
+    if (startedAt < thirtyDaysAgo) {
+      Alert.alert("Invalid session", "Session is too old to save (>30 days)");
+      return;
+    }
+
     let leftOz: number | null;
     let rightOz: number | null;
 

@@ -101,8 +101,22 @@ export default function LogSessionScreen() {
 
   const handleSave = async () => {
     if (!user) return;
+
+    // Validate date — prevent future dates or dates from >30 days ago (likely errors)
+    const startedAt = when;
+    const now = new Date();
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    if (startedAt > now) {
+      Alert.alert("Invalid date", "Session date cannot be in the future");
+      return;
+    }
+    if (startedAt < thirtyDaysAgo) {
+      Alert.alert("Invalid date", "Session date cannot be more than 30 days old");
+      return;
+    }
+
     const durationMin = parseInt(duration) || 0;
-    const startedAt   = when;
     const endedAt     = new Date(startedAt.getTime() + durationMin * 60 * 1000);
 
     let finalLeftOz: number | null;
