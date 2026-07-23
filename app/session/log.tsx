@@ -61,7 +61,8 @@ export default function LogSessionScreen() {
   const [expressionSuction,       setExpressionSuction]       = useState<number | null>(null);
   const [expressionCycleSpeed,    setExpressionCycleSpeed]    = useState<number | null>(null);
   const [timeToLetdownMin,        setTimeToLetdownMin]        = useState<string>("");
-  const [activePhase,             setActivePhase]             = useState<"massage" | "expression" | null>(null);
+  const [showMassagePhase,        setShowMassagePhase]        = useState(false);
+  const [showExpressionPhase,     setShowExpressionPhase]     = useState(false);
 
   // Load log-by-total preference + pumps
   useEffect(() => {
@@ -294,30 +295,39 @@ export default function LogSessionScreen() {
               />
             </View>
 
-            {/* Phase Selection */}
+            {/* Phase Selection — independent toggles */}
             <View>
-              <Text className="text-sm font-sans-semi text-ink-2 mb-2">Pump phases</Text>
+              <Text className="text-sm font-sans-semi text-ink-2 mb-2">Pump phases (select both if needed)</Text>
               <View className="flex-row gap-2">
-                {(["massage", "expression"] as const).map((p) => (
-                  <Pressable
-                    key={p}
-                    onPress={() => setActivePhase(activePhase === p ? null : p)}
-                    className={`flex-1 py-2.5 px-3 rounded-lg border ${
-                      activePhase === p ? "bg-primary border-primary" : "bg-muted border-border"
-                    }`}
-                  >
-                    <Text className={`text-xs font-sans-semi text-center capitalize ${
-                      activePhase === p ? "text-white" : "text-ink"
-                    }`}>
-                      {p}
-                    </Text>
-                  </Pressable>
-                ))}
+                <Pressable
+                  onPress={() => setShowMassagePhase(!showMassagePhase)}
+                  className={`flex-1 py-2.5 px-3 rounded-lg border ${
+                    showMassagePhase ? "bg-primary border-primary" : "bg-muted border-border"
+                  }`}
+                >
+                  <Text className={`text-xs font-sans-semi text-center ${
+                    showMassagePhase ? "text-white" : "text-ink"
+                  }`}>
+                    Massage
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => setShowExpressionPhase(!showExpressionPhase)}
+                  className={`flex-1 py-2.5 px-3 rounded-lg border ${
+                    showExpressionPhase ? "bg-primary border-primary" : "bg-muted border-border"
+                  }`}
+                >
+                  <Text className={`text-xs font-sans-semi text-center ${
+                    showExpressionPhase ? "text-white" : "text-ink"
+                  }`}>
+                    Expression
+                  </Text>
+                </Pressable>
               </View>
             </View>
 
             {/* Massage Phase Settings */}
-            {(activePhase === "massage" || massageDuration) && (
+            {showMassagePhase && (
               <PhaseSettings
                 phase="massage"
                 duration={massageDuration}
@@ -330,7 +340,7 @@ export default function LogSessionScreen() {
             )}
 
             {/* Expression Phase Settings */}
-            {(activePhase === "expression" || expressionDuration) && (
+            {showExpressionPhase && (
               <PhaseSettings
                 phase="expression"
                 duration={expressionDuration}
