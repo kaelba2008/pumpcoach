@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import {
-  View, Text, ScrollView, Pressable, Alert, Modal, ActivityIndicator,
-  ActionSheetIOS, Platform, FlatList, RefreshControl,
+  View, Text, ScrollView, Pressable, Alert, FlatList, RefreshControl, ActivityIndicator, Animated, GestureResponderEvent,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -9,264 +8,92 @@ import { format, isToday, isYesterday, startOfDay } from "date-fns";
 import { supabase } from "../lib/supabase";
 import { useAuthStore } from "../store/authStore";
 import { useUnit } from "../hooks/useUnit";
-import { formatUnit, ozToMl, mlToOz } from "../lib/units";
+import { formatUnit } from "../lib/units";
 import { COLORS, SERIF } from "../lib/constants";
 import { PumpSession } from "../types";
-import { OzInput } from "../components/ui/OzInput";
-import { PainLevelPicker } from "../components/ui/PainLevelPicker";
-import { Input } from "../components/ui/Input";
-import { Button } from "../components/ui/Button";
-import { DatePickerField } from "../components/ui/DatePickerField";
 
-const PAGE_SIZE = 30;
+const PAGE_SIZE = 50;
 
 function dateLabel(dateStr: string): string {
   const d = new Date(dateStr);
   if (isToday(d)) return "Today";
   if (isYesterday(d)) return "Yesterday";
-  return format(d, "MMMM d, yyyy");
+  return format(d, "MMM d");
 }
 
-function groupByDay(sessions: PumpSession[]): { label: string; data: PumpSession[] }[] {
+function groupByDay(sessions: PumpSession[]): { label: string; date: string; data: PumpSession[] }[] {
   const map = new Map<string, PumpSession[]>();
   for (const s of sessions) {
     const key = startOfDay(new Date(s.started_at)).toISOString();
     if (!map.has(key)) map.set(key, []);
     map.get(key)!.push(s);
   }
-  return Array.from(map.entries()).map(([, data]) => ({
-    label: dateLabel(data[0].started_at),
-    data,
-  }));
+  return Array.from(map.entries())
+    .sort((a, b) => new Date(b[0]).getTime() - new Date(a[0]).getTime())
+    .map(([date, data]) => ({
+      label: dateLabel(data[0].started_at),
+      date,
+      data: data.sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime()),
+    }));
 }
-
-// ── Edit modal ────────────────────────────────────────────────────────────────
-
-interface EditModalProps {
-  session: PumpSession | null;
-  visible: boolean;
-  onClose: () => void;
-  onSaved: () => void;
-}
-
-function EditModal({ session, visible, onClose, onSaved }: EditModalProps) {
-  const { unit } = useUnit();
-  const [startedAt, setStartedAt] = useState<Date>(new Date());
-  const [leftOz,    setLeftOz]    = useState("");
-  const [rightOz,   setRightOz]   = useState("");
-  const [painLevel, setPainLevel] = useState<number | null>(null);
-  const [notes,     setNotes]     = useState("");
-  const [saving,    setSaving]    = useState(false);
-
-  const toDisplay = (oz: string) => {
-    if (unit === "ml") { const n = parseFloat(oz) || 0; return n > 0 ? String(Math.round(ozToMl(n))) : ""; }
-    return oz;
-  };
-  const fromDisplay = (val: string) => {
-    if (unit === "ml") { const ml = parseFloat(val) || 0; return ml > 0 ? String(Math.round(mlToOz(ml) * 100) / 100) : ""; }
-    return val;
-  };
-
-  useEffect(() => {
-    if (session) {
-      setStartedAt(new Date(session.started_at));
-      setLeftOz(session.left_oz  != null ? String(session.left_oz)  : "");
-      setRightOz(session.right_oz != null ? String(session.right_oz) : "");
-      setPainLevel(session.pain_level);
-      setNotes(session.notes ?? "");
-    }
-  }, [session]);
-
-  const handleSave = async () => {
-    if (!session) return;
-    setSaving(true);
-    const { error } = await supabase.from("pump_sessions").update({
-      started_at: startedAt.toISOString(),
-      left_oz:    parseFloat(leftOz)  || null,
-      right_oz:   parseFloat(rightOz) || null,
-      notes:      notes.trim() || null,
-      pain_level: painLevel,
-    }).eq("id", session.id);
-    setSaving(false);
-    if (error) { Alert.alert("Error saving", error.message); return; }
-    onSaved();
-    onClose();
-  };
-
-  if (!session) return null;
-
-  return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.cream }}>
-        <View style={{
-          flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-          paddingHorizontal: 20, paddingVertical: 16,
-          borderBottomWidth: 1, borderBottomColor: COLORS.border,
-        }}>
-          <Pressable onPress={onClose} hitSlop={12}>
-            <Text style={{ fontSize: 15, color: COLORS.ink3, fontFamily: "Nunito_600SemiBold", fontWeight: "600" }}>Cancel</Text>
-          </Pressable>
-          <Text style={{ fontFamily: SERIF, fontSize: 18, color: COLORS.ink }}>Edit Session</Text>
-          <Pressable onPress={handleSave} hitSlop={12} disabled={saving}>
-            <Text style={{ fontSize: 15, color: COLORS.primary, fontFamily: "Nunito_700Bold", fontWeight: "700", opacity: saving ? 0.5 : 1 }}>
-              {saving ? "Saving…" : "Save"}
-            </Text>
-          </Pressable>
-        </View>
-
-        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 20, gap: 20 }}>
-          <DatePickerField
-            label="When"
-            value={startedAt}
-            onChange={(d) => d && setStartedAt(d)}
-            mode="datetime"
-            maximumDate={new Date()}
-          />
-
-          <View style={{ backgroundColor: "#fff", borderRadius: 20, padding: 20, shadowColor: "#1A1A2E", shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 }}>
-            <View style={{ flexDirection: "row", justifyContent: "space-around", marginBottom: 8 }}>
-              <OzInput label="Left"  value={toDisplay(leftOz)}  onChange={(v) => setLeftOz(fromDisplay(v))}  unit={unit} />
-              <View style={{ width: 1, backgroundColor: COLORS.border }} />
-              <OzInput label="Right" value={toDisplay(rightOz)} onChange={(v) => setRightOz(fromDisplay(v))} unit={unit} />
-            </View>
-          </View>
-
-          <PainLevelPicker value={painLevel} onChange={setPainLevel} />
-
-          <Input
-            label="Notes (optional)"
-            value={notes}
-            onChangeText={setNotes}
-            placeholder="How did this session feel?"
-            multiline
-            numberOfLines={3}
-            textAlignVertical="top"
-            style={{ minHeight: 72 }}
-            autoCapitalize="sentences"
-          />
-
-          <Button label="Save changes" onPress={handleSave} loading={saving} fullWidth size="lg" />
-        </ScrollView>
-      </SafeAreaView>
-    </Modal>
-  );
-}
-
-// ── Session row ───────────────────────────────────────────────────────────────
-
-function SessionRow({
-  session,
-  unit,
-  onEdit,
-  onDelete,
-}: {
-  session: PumpSession;
-  unit: "oz" | "ml";
-  onEdit: () => void;
-  onDelete: () => void;
-}) {
-  const durationMin = session.duration_sec ? Math.round(session.duration_sec / 60) : null;
-
-  const showOptions = () => {
-    if (Platform.OS === "ios") {
-      ActionSheetIOS.showActionSheetWithOptions(
-        { options: ["Edit", "Delete", "Cancel"], destructiveButtonIndex: 1, cancelButtonIndex: 2 },
-        (i) => { if (i === 0) onEdit(); if (i === 1) onDelete(); }
-      );
-    } else {
-      Alert.alert("Session options", undefined, [
-        { text: "Edit", onPress: onEdit },
-        { text: "Delete", style: "destructive", onPress: onDelete },
-        { text: "Cancel", style: "cancel" },
-      ]);
-    }
-  };
-
-  return (
-    <Pressable
-      onPress={onEdit}
-      onLongPress={showOptions}
-      style={({ pressed }) => ({
-        flexDirection: "row", alignItems: "center",
-        paddingVertical: 13, paddingHorizontal: 16,
-        backgroundColor: pressed ? COLORS.muted : "transparent",
-      })}
-    >
-      <View style={{ flex: 1 }}>
-        <Text style={{ fontSize: 14, fontFamily: "Nunito_700Bold", fontWeight: "700", color: COLORS.ink }}>
-          {format(new Date(session.started_at), "h:mm a")}
-        </Text>
-        {durationMin && (
-          <Text style={{ fontSize: 12, color: COLORS.ink3, marginTop: 2 }}>
-            {durationMin} min
-            {session.letdown_quality ? ` · ${session.letdown_quality} letdown` : ""}
-            {session.pain_level && session.pain_level > 0 ? ` · pain ${session.pain_level}/10` : ""}
-          </Text>
-        )}
-        {session.notes ? (
-          <Text style={{ fontSize: 12, color: COLORS.ink2, marginTop: 3 }} numberOfLines={1}>
-            {session.notes}
-          </Text>
-        ) : null}
-      </View>
-
-      <View style={{ alignItems: "flex-end", marginLeft: 12 }}>
-        <Text style={{ fontSize: 18, fontFamily: "Nunito_800ExtraBold", fontWeight: "800", color: COLORS.primary }}>
-          {formatUnit(session.total_oz, unit)}
-        </Text>
-        {session.left_oz != null && session.right_oz != null && (
-          <Text style={{ fontSize: 11, color: COLORS.ink3, marginTop: 2 }}>
-            L {formatUnit(session.left_oz, unit)} · R {formatUnit(session.right_oz, unit)}
-          </Text>
-        )}
-      </View>
-
-      <Text style={{ fontSize: 16, color: COLORS.ink3, marginLeft: 10 }}>›</Text>
-    </Pressable>
-  );
-}
-
-// ── Main screen ───────────────────────────────────────────────────────────────
 
 export default function PumpHistoryScreen() {
   const router = useRouter();
   const { user } = useAuthStore();
   const { unit } = useUnit();
 
-  const [sessions,    setSessions]    = useState<PumpSession[]>([]);
-  const [loading,     setLoading]     = useState(true);
-  const [refreshing,  setRefreshing]  = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [hasMore,     setHasMore]     = useState(true);
-  const [editSession, setEditSession] = useState<PumpSession | null>(null);
-  const [showEdit,    setShowEdit]    = useState(false);
+  const [sessions, setSessions] = useState<PumpSession[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [offset, setOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
 
-  const fetchSessions = useCallback(async (offset = 0, append = false) => {
+  const fetchSessions = useCallback(async (loadOffset: number) => {
     if (!user) return;
-    if (offset === 0) setLoading(true); else setLoadingMore(true);
-
     const { data, error } = await supabase
       .from("pump_sessions")
       .select("*")
       .eq("user_id", user.id)
       .order("started_at", { ascending: false })
-      .range(offset, offset + PAGE_SIZE - 1);
+      .range(loadOffset, loadOffset + PAGE_SIZE - 1);
 
-    if (offset === 0) setLoading(false); else setLoadingMore(false);
+    if (!error && data) {
+      if (loadOffset === 0) {
+        setSessions(data as PumpSession[]);
+      } else {
+        setSessions((prev) => [...prev, ...(data as PumpSession[])]);
+      }
+      setHasMore((data as PumpSession[]).length === PAGE_SIZE);
+    }
+    setLoading(false);
     setRefreshing(false);
-    if (error || !data) return;
-
-    setSessions((prev) => append ? [...prev, ...data as PumpSession[]] : data as PumpSession[]);
-    setHasMore(data.length === PAGE_SIZE);
   }, [user]);
 
-  useEffect(() => { fetchSessions(); }, [fetchSessions]);
+  useEffect(() => {
+    fetchSessions(0);
+    setOffset(0);
+  }, [fetchSessions]);
 
-  const handleDelete = (session: PumpSession) => {
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchSessions(0);
+    setOffset(0);
+  };
+
+  const loadMore = () => {
+    if (hasMore && !loading && !refreshing) {
+      const newOffset = offset + PAGE_SIZE;
+      setOffset(newOffset);
+      fetchSessions(newOffset);
+    }
+  };
+
+  const deleteSession = (session: PumpSession) => {
     Alert.alert("Delete session?", "This cannot be undone.", [
       { text: "Cancel", style: "cancel" },
       {
-        text: "Delete", style: "destructive",
+        text: "Delete",
+        style: "destructive",
         onPress: async () => {
           await supabase.from("pump_sessions").delete().eq("id", session.id);
           setSessions((prev) => prev.filter((s) => s.id !== session.id));
@@ -280,91 +107,200 @@ export default function PumpHistoryScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.cream }}>
       {/* Header */}
-      <View style={{
-        flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-        paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12,
-        borderBottomWidth: 1, borderBottomColor: COLORS.border,
-      }}>
-        <Pressable onPress={() => router.back()} hitSlop={12}>
-          <Text style={{ fontSize: 14, color: COLORS.ink3, fontFamily: "Nunito_600SemiBold", fontWeight: "600" }}>‹ Back</Text>
-        </Pressable>
-        <Text style={{ fontFamily: SERIF, fontSize: 20, color: COLORS.ink }}>Pump History</Text>
-        <View style={{ width: 56 }} />
+      <View style={{ paddingHorizontal: 24, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: COLORS.border }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <Pressable onPress={() => router.back()} hitSlop={8}>
+            <Text style={{ fontSize: 24, color: COLORS.ink }}>‹</Text>
+          </Pressable>
+          <Text style={{ fontFamily: SERIF, fontSize: 20, fontWeight: "600", color: COLORS.ink }}>
+            Pump Sessions
+          </Text>
+        </View>
       </View>
 
       {loading ? (
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-          <ActivityIndicator color={COLORS.primary} />
+          <ActivityIndicator size="large" color={COLORS.primary} />
+        </View>
+      ) : sessions.length === 0 ? (
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 32 }}>
+          <Text style={{ fontSize: 16, color: COLORS.ink3, textAlign: "center" }}>
+            No sessions yet. Start logging to see your history here.
+          </Text>
         </View>
       ) : (
         <FlatList
           data={groups}
-          keyExtractor={(g) => g.label}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={() => { setRefreshing(true); fetchSessions(0); }}
-              tintColor={COLORS.primary}
-            />
-          }
-          contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
+          keyExtractor={(g) => g.date}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
+          contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
+          onEndReached={loadMore}
+          onEndReachedThreshold={0.5}
           renderItem={({ item: group }) => (
             <View style={{ marginBottom: 20 }}>
-              <Text style={{
-                fontSize: 12, fontFamily: "Nunito_700Bold", fontWeight: "700",
-                color: COLORS.ink3, textTransform: "uppercase", letterSpacing: 1,
-                marginBottom: 10,
-              }}>
+              {/* Day header */}
+              <Text style={{ fontSize: 11, fontWeight: "700", color: COLORS.ink3, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8, paddingHorizontal: 4 }}>
                 {group.label}
               </Text>
-              <View style={{ backgroundColor: "#fff", borderRadius: 20, overflow: "hidden", borderWidth: 1, borderColor: COLORS.border }}>
-                {group.data.map((s, idx) => (
-                  <React.Fragment key={s.id}>
-                    {idx > 0 && <View style={{ height: 1, backgroundColor: COLORS.border, marginLeft: 16 }} />}
-                    <SessionRow
-                      session={s}
-                      unit={unit}
-                      onEdit={() => { setEditSession(s); setShowEdit(true); }}
-                      onDelete={() => handleDelete(s)}
-                    />
-                  </React.Fragment>
+
+              {/* Sessions for this day */}
+              <View style={{ gap: 8 }}>
+                {group.data.map((session) => (
+                  <SessionCard
+                    key={session.id}
+                    session={session}
+                    unit={unit}
+                    onDelete={() => deleteSession(session)}
+                  />
                 ))}
               </View>
             </View>
           )}
-          ListEmptyComponent={
-            <View style={{ alignItems: "center", paddingTop: 60 }}>
-              <Text style={{ fontSize: 36, marginBottom: 12 }}>🍼</Text>
-              <Text style={{ fontSize: 16, fontFamily: "Nunito_700Bold", fontWeight: "700", color: COLORS.ink, marginBottom: 6 }}>
-                No sessions yet
-              </Text>
-              <Text style={{ fontSize: 13, color: COLORS.ink2, textAlign: "center" }}>
-                Start pumping to see your history here.
-              </Text>
-            </View>
-          }
           ListFooterComponent={
-            hasMore && sessions.length > 0 ? (
-              <Pressable
-                onPress={() => fetchSessions(sessions.length, true)}
-                style={{ alignItems: "center", paddingVertical: 16 }}
-              >
-                {loadingMore
-                  ? <ActivityIndicator color={COLORS.primary} />
-                  : <Text style={{ fontSize: 13, color: COLORS.primary, fontFamily: "Nunito_600SemiBold", fontWeight: "600" }}>Load more</Text>
-                }
-              </Pressable>
+            hasMore && !refreshing ? (
+              <View style={{ paddingVertical: 20, alignItems: "center" }}>
+                <ActivityIndicator color={COLORS.primary} />
+              </View>
             ) : null
           }
         />
       )}
-
-      <EditModal
-        session={editSession}
-        visible={showEdit}
-        onClose={() => { setShowEdit(false); setEditSession(null); }}
-        onSaved={() => fetchSessions()}
-      />
     </SafeAreaView>
+  );
+}
+
+interface SessionCardProps {
+  session: PumpSession;
+  unit: "oz" | "ml";
+  onDelete: () => void;
+}
+
+function SessionCard({ session, unit, onDelete }: SessionCardProps) {
+  const time = format(new Date(session.started_at), "h:mm a");
+  const totalOz = (session.left_oz ?? 0) + (session.right_oz ?? 0);
+  const durationMin = Math.round((session.duration_sec ?? 0) / 60);
+
+  const panX = new Animated.Value(0);
+  const [showDelete, setShowDelete] = useState(false);
+
+  const handleSwipe = (e: GestureResponderEvent) => {
+    const { nativeEvent } = e;
+    if (nativeEvent.locationX < 50) {
+      setShowDelete(true);
+    }
+  };
+
+  return (
+    <View style={{ position: "relative" }}>
+      {/* Delete background */}
+      {showDelete && (
+        <View
+          style={{
+            position: "absolute",
+            right: 0,
+            top: 0,
+            bottom: 0,
+            width: "30%",
+            backgroundColor: "#EF4444",
+            borderRadius: 12,
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <Text style={{ color: "#fff", fontWeight: "600", fontSize: 12 }}>Delete</Text>
+        </View>
+      )}
+
+      {/* Session card */}
+      <Pressable
+        onPress={() => setShowDelete(false)}
+        onLongPress={onDelete}
+        delayLongPress={800}
+        style={{
+          backgroundColor: "#fff",
+          borderRadius: 12,
+          padding: 12,
+          marginRight: showDelete ? 0 : 0,
+          borderWidth: 1,
+          borderColor: COLORS.border,
+        }}
+      >
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+          {/* Time & details */}
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 15, fontWeight: "600", color: COLORS.ink, marginBottom: 4 }}>
+              {time}
+            </Text>
+            <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
+              {/* Output */}
+              <View>
+                <Text style={{ fontSize: 11, color: COLORS.ink3, marginBottom: 1 }}>Output</Text>
+                <Text style={{ fontSize: 14, fontWeight: "700", color: COLORS.primary }}>
+                  {formatUnit(totalOz, unit)}
+                </Text>
+              </View>
+
+              {/* Duration */}
+              <View>
+                <Text style={{ fontSize: 11, color: COLORS.ink3, marginBottom: 1 }}>Duration</Text>
+                <Text style={{ fontSize: 14, fontWeight: "700", color: COLORS.ink }}>
+                  {durationMin}m
+                </Text>
+              </View>
+
+              {/* Pain */}
+              {session.pain_level != null && session.pain_level > 0 && (
+                <View>
+                  <Text style={{ fontSize: 11, color: COLORS.ink3, marginBottom: 1 }}>Pain</Text>
+                  <Text style={{ fontSize: 14, fontWeight: "700", color: "#EA580C" }}>
+                    {session.pain_level}/10
+                  </Text>
+                </View>
+              )}
+
+              {/* Letdown */}
+              {session.letdown_quality && (
+                <View>
+                  <Text style={{ fontSize: 11, color: COLORS.ink3, marginBottom: 1 }}>Letdown</Text>
+                  <Text style={{ fontSize: 12, fontWeight: "600", color: COLORS.ink, textTransform: "capitalize" }}>
+                    {session.letdown_quality}
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            {/* Notes */}
+            {session.notes && (
+              <Text
+                style={{
+                  fontSize: 12,
+                  color: COLORS.ink2,
+                  marginTop: 6,
+                  fontStyle: "italic",
+                  maxWidth: "90%",
+                }}
+                numberOfLines={1}
+              >
+                "{session.notes}"
+              </Text>
+            )}
+          </View>
+
+          {/* Delete button hint */}
+          <Pressable
+            onPress={onDelete}
+            style={{
+              width: 36,
+              height: 36,
+              justifyContent: "center",
+              alignItems: "center",
+              marginLeft: 8,
+            }}
+          >
+            <Text style={{ fontSize: 20, color: "#EF4444" }}>×</Text>
+          </Pressable>
+        </View>
+      </Pressable>
+    </View>
   );
 }
