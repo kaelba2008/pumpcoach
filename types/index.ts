@@ -261,3 +261,12 @@ export interface ViewerAccount {
   label: string | null;
   created_at: string;
 }
+
+export interface ViewerNote {
+  id: string;
+  viewer_id: string;
+  viewing_user_id: string;
+  note_content: string;
+  created_at: string;
+  updated_at: string;
+}

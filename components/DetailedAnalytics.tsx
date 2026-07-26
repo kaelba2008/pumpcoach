@@ -21,6 +21,11 @@ export function DetailedAnalytics({ sessions, unit }: DetailedAnalyticsProps) {
     const sessionsLast7 = sessions.filter((s) => new Date(s.started_at) >= last7Days);
     const sessionsLast30 = sessions.filter((s) => new Date(s.started_at) >= last30Days);
 
+    // Check if there's enough data (at least 7 days of sessions)
+    const oldestSession = sessions.length > 0 ? new Date(sessions[sessions.length - 1].started_at) : now;
+    const daysSinceStart = Math.floor((now.getTime() - oldestSession.getTime()) / (1000 * 60 * 60 * 24));
+    const hasEnoughData = daysSinceStart >= 7;
+
     // ── Supply Trends ────────────────────────────────────────────────────
     const dailyOutputLast7: { date: string; oz: number; count: number }[] = [];
     for (let i = 6; i >= 0; i--) {
@@ -46,9 +51,9 @@ export function DetailedAnalytics({ sessions, unit }: DetailedAnalyticsProps) {
     const efficiencies = sessions
       .filter((s) => s.duration_sec && s.duration_sec > 0)
       .map((s) => ({
-        efficiency: ((s.total_oz ?? 0) / (s.duration_sec / 60)),
+        efficiency: ((s.total_oz ?? 0) / ((s.duration_sec ?? 0) / 60)),
         oz: s.total_oz ?? 0,
-        duration: s.duration_sec,
+        duration: s.duration_sec ?? 0,
         hour: new Date(s.started_at).getHours(),
         mode: s.pump_mode,
         suction: s.suction_level,
@@ -114,26 +119,30 @@ export function DetailedAnalytics({ sessions, unit }: DetailedAnalyticsProps) {
     // ── Recommendations ──────────────────────────────────────────────────
     const recommendations: string[] = [];
 
-    if (sessionsPerDay7 < 8) {
-      recommendations.push("Increase frequency to 8+ sessions daily to maintain supply");
-    }
-    if (avgEfficiency < 0.4) {
-      recommendations.push("Session efficiency is low — consider adjusting suction or duration");
-    }
-    if (painAvg > 4) {
-      recommendations.push("High pain levels detected — check flange size and pressure settings");
-    }
-    if (slowLetdownPct > 40) {
-      recommendations.push("Frequent slow letdowns — try massage mode or warm compress beforehand");
-    }
-    if (weekChange < -15) {
-      recommendations.push("Output is declining — ensure adequate hydration, rest, and nutrition");
-    }
-    if (consistency < 70) {
-      recommendations.push("Highly variable output — aim for more consistent session timing");
-    }
-    if (bestSettings && bestSettings.suction && bestSettings.speed) {
-      recommendations.push(`Your best settings: Suction ${bestSettings.suction}, Speed ${bestSettings.speed}`);
+    if (!hasEnoughData) {
+      recommendations.push("Keep logging to build your data history — patterns will appear after 7+ days");
+    } else {
+      if (sessionsPerDay7 < 8) {
+        recommendations.push("Increase frequency to 8+ sessions daily to maintain supply");
+      }
+      if (avgEfficiency < 0.4) {
+        recommendations.push("Session efficiency is low — consider adjusting suction or duration");
+      }
+      if (painAvg > 4) {
+        recommendations.push("High pain levels detected — check flange size and pressure settings");
+      }
+      if (slowLetdownPct > 40) {
+        recommendations.push("Frequent slow letdowns — try massage mode or warm compress beforehand");
+      }
+      if (weekChange < -15) {
+        recommendations.push("Output is declining — ensure adequate hydration, rest, and nutrition");
+      }
+      if (consistency < 70) {
+        recommendations.push("Highly variable output — aim for more consistent session timing");
+      }
+      if (bestSettings && bestSettings.suction && bestSettings.speed) {
+        recommendations.push(`Your best settings: Suction ${bestSettings.suction}, Speed ${bestSettings.speed}`);
+      }
     }
 
     return {
@@ -155,6 +164,7 @@ export function DetailedAnalytics({ sessions, unit }: DetailedAnalyticsProps) {
       weekChange,
       consistency,
       recommendations,
+      hasEnoughData,
     };
   }, [sessions]);
 
@@ -244,15 +254,23 @@ export function DetailedAnalytics({ sessions, unit }: DetailedAnalyticsProps) {
 
       {/* Productivity */}
       <Section title="Productivity Score">
-        <Row
-          label="This week"
-          value={formatUnit(analysis.thisWeekTotal, unit)}
-          valueColor={analysis.weekChange > 0 ? "#16A34A" : analysis.weekChange < -10 ? "#EA580C" : COLORS.primary}
-        />
-        {analysis.prevWeekTotal > 0 && (
-          <Row label="vs last week" value={`${analysis.weekChange > 0 ? "+" : ""}${analysis.weekChange.toFixed(0)}%`} />
+        {!analysis.hasEnoughData ? (
+          <Text style={{ fontSize: 13, color: COLORS.ink2, lineHeight: 18 }}>
+            Keep logging to see consistency and trend analysis. You'll unlock these insights once you have 7+ days of data.
+          </Text>
+        ) : (
+          <>
+            <Row
+              label="This week"
+              value={formatUnit(analysis.thisWeekTotal, unit)}
+              valueColor={analysis.weekChange > 0 ? "#16A34A" : analysis.weekChange < -10 ? "#EA580C" : COLORS.primary}
+            />
+            {analysis.prevWeekTotal > 0 && (
+              <Row label="vs last week" value={`${analysis.weekChange > 0 ? "+" : ""}${analysis.weekChange.toFixed(0)}%`} />
+            )}
+            <Row label="Consistency" value={`${analysis.consistency.toFixed(0)}%`} />
+          </>
         )}
-        <Row label="Consistency" value={`${analysis.consistency.toFixed(0)}%`} />
       </Section>
 
       {/* Recommendations */}

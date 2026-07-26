@@ -258,13 +258,31 @@ export default function ProfileScreen() {
       return;
     }
 
-    const link = `pumpcoach://viewer-invite?token=${data.token}`;
+    const deepLink = `pumpcoach://viewer-invite?token=${data.token}`;
+    const webLink = `https://pumpcoach.app/invite?token=${data.token}`;
     const ownerName = profile?.display_name ?? "Someone";
     const babyName = profile?.baby_name;
     const appStoreUrl = "https://apps.apple.com/app/id6765497176";
 
     const subject = `${ownerName} invited you to view her Pump Coach data`;
-    const body = [
+    const htmlBody = `
+      <html>
+        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333;">
+          <p>Hi!</p>
+          <p>${ownerName} has invited you to view her pumping data${babyName ? ` for ${babyName}` : ""} in Pump Coach.</p>
+          <p style="margin-top: 24px;"><strong>Here's how to get started:</strong></p>
+          <ol>
+            <li>Download Pump Coach (free): <a href="${appStoreUrl}" style="color: #D4A574; text-decoration: none; font-weight: 500;">Download from App Store</a></li>
+            <li>Open the app and <a href="${deepLink}" style="color: #D4A574; text-decoration: none; font-weight: 500; border: 1px solid #D4A574; padding: 8px 12px; border-radius: 6px; display: inline-block;">Accept the invite</a></li>
+          </ol>
+          <p>Or accept directly in your browser: <a href="${webLink}" style="color: #D4A574; text-decoration: none; font-weight: 500;">${webLink}</a></p>
+          <p>Once you accept, you'll have read-only access to her pumping sessions and data.</p>
+          <p style="margin-top: 24px; color: #999; font-size: 14px;">— Pump Coach</p>
+        </body>
+      </html>
+    `;
+
+    const plainTextBody = [
       `Hi!`,
       ``,
       `${ownerName} has invited you to view her pumping data${babyName ? ` for ${babyName}` : ""} in Pump Coach.`,
@@ -275,7 +293,10 @@ export default function ProfileScreen() {
       `   ${appStoreUrl}`,
       ``,
       `2. Open the app and tap this link to accept the invite:`,
-      `   ${link}`,
+      `   ${deepLink}`,
+      ``,
+      `Or accept in your browser:`,
+      `   ${webLink}`,
       ``,
       `Once you accept, you'll have read-only access to her pumping sessions and data.`,
       ``,
@@ -288,7 +309,8 @@ export default function ProfileScreen() {
       await MailComposer.composeAsync({
         recipients: [recipientEmail],
         subject,
-        body,
+        body: htmlBody,
+        isHtml: true,
       });
     } else {
       // Fallback to share sheet on devices without a mail app configured

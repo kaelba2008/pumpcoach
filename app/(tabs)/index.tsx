@@ -18,6 +18,8 @@ import { ConsultRecommendation } from "../../components/ConsultRecommendation";
 import { PremiumTeaser } from "../../components/ui/PremiumTeaser";
 import { NursingEntryModal } from "../../components/NursingEntryModal";
 import { SessionAnalysis } from "../../components/SessionAnalysis";
+import { DetailedAnalytics } from "../../components/DetailedAnalytics";
+import { ViewerSwitcher } from "../../components/ViewerSwitcher";
 import { fmtOz, babyAgeLabel } from "../../lib/formatters";
 import { useUnit } from "../../hooks/useUnit";
 import { formatUnit, ozToMl, mlToOz } from "../../lib/units";
@@ -222,6 +224,12 @@ export default function DashboardScreen() {
   // Fix 5: edit past session state
   const [editingSession, setEditingSession] = useState<PumpSession | null>(null);
   const [showEditModal,  setShowEditModal]  = useState(false);
+
+  // Analytics modal
+  const [showDetailedAnalytics, setShowDetailedAnalytics] = useState(false);
+
+  // Viewer switcher for IBCLCs/partners viewing others' data
+  const [viewingUserId, setViewingUserId] = useState<string | null>(null);
 
   const showNursingLog = shouldShowNursingLog(profile?.pumping_context, nursingOverride);
 
@@ -433,12 +441,25 @@ export default function DashboardScreen() {
         </LinearGradient>
         </View>
 
+        {/* Viewer Switcher (for IBCLCs/partners viewing others' data) */}
+        <ViewerSwitcher currentViewingUserId={viewingUserId} onViewUserChange={setViewingUserId} />
+
         <View style={{ paddingHorizontal: 20, marginTop: -16 }}>
 
           {/* ── Session Analysis ────────────────────────── */}
           {todaySessions.length > 0 && (
             <View style={{ marginBottom: 16 }}>
               <SessionAnalysis sessions={todaySessions} unit={unit} />
+              {isPremium && (
+                <Pressable
+                  onPress={() => setShowDetailedAnalytics(true)}
+                  style={{ marginTop: 8, paddingHorizontal: 6, paddingVertical: 4 }}
+                >
+                  <Text style={{ fontSize: 12, color: COLORS.primary, fontFamily: "Nunito_600SemiBold", fontWeight: "600" }}>
+                    View Full Analytics →
+                  </Text>
+                </Pressable>
+              )}
             </View>
           )}
 
@@ -918,6 +939,28 @@ export default function DashboardScreen() {
         onClose={() => { setShowEditModal(false); setEditingSession(null); }}
         onSaved={loadData}
       />
+
+      {/* Detailed Analytics Modal (Premium) */}
+      {isPremium && (
+        <Modal
+          visible={showDetailedAnalytics}
+          animationType="slide"
+          presentationStyle="formSheet"
+          onRequestClose={() => setShowDetailedAnalytics(false)}
+        >
+          <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.cream }}>
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingVertical: 16 }}>
+              <Text style={{ fontFamily: SERIF, fontSize: 20, fontWeight: "600", color: COLORS.ink }}>
+                Analytics
+              </Text>
+              <Pressable onPress={() => setShowDetailedAnalytics(false)} hitSlop={8}>
+                <Text style={{ fontSize: 20, color: COLORS.ink }}>×</Text>
+              </Pressable>
+            </View>
+            <DetailedAnalytics sessions={sessions} unit={unit} />
+          </SafeAreaView>
+        </Modal>
+      )}
     </SafeAreaView>
   );
 }
