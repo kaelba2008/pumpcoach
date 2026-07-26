@@ -906,9 +906,6 @@ export default function DashboardScreen() {
                 );
               })}
             </View>
-                );
-              })}
-            </View>
           )}
 
           {/* ── Consult recommendation ──────────────────── */}
