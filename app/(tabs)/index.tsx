@@ -242,6 +242,7 @@ export default function DashboardScreen() {
   }, []);
 
   const loadData = useCallback(async () => {
+    if (!user) return;
     const since     = subDays(new Date(), 7).toISOString();
     const todayISO  = startOfDay(new Date()).toISOString();
     const todayDate = format(new Date(), "yyyy-MM-dd");
@@ -250,6 +251,7 @@ export default function DashboardScreen() {
       supabase
         .from("pump_sessions")
         .select("*")
+        .eq("user_id", user.id)
         .gte("started_at", since)
         .order("started_at", { ascending: false }),
       supabase
@@ -834,63 +836,76 @@ export default function DashboardScreen() {
               </Text>
             </View>
           ) : (
-            <View style={{ backgroundColor: "#fff", borderRadius: 20, overflow: "hidden", borderWidth: 1, borderColor: COLORS.border, paddingVertical: 4 }}>
-              {sessions.slice(0, 6).map((s, idx) => {
-                const durationMin = s.duration_sec ? Math.round(s.duration_sec / 60) : null;
+            <View style={{ gap: 8 }}>
+              {sessions.slice(0, 3).map((s) => {
+                const time = format(new Date(s.started_at), "h:mm a");
+                const totalOz = (s.left_oz ?? 0) + (s.right_oz ?? 0);
+                const durationMin = Math.round((s.duration_sec ?? 0) / 60);
                 const doEdit   = () => { setEditingSession(s); setShowEditModal(true); };
                 const doDelete = () => Alert.alert("Delete session?", "This cannot be undone.", [
                   { text: "Cancel", style: "cancel" },
                   { text: "Delete", style: "destructive", onPress: async () => { await supabase.from("pump_sessions").delete().eq("id", s.id); loadData(); } },
                 ]);
+
                 return (
-                  <React.Fragment key={s.id}>
-                    {idx > 0 && <View style={{ height: 1, backgroundColor: COLORS.border, marginLeft: 16 }} />}
-                    <Pressable
-                      onPress={doEdit}
-                      onLongPress={() => {
-                        if (Platform.OS === "ios") {
-                          ActionSheetIOS.showActionSheetWithOptions(
-                            { options: ["Edit", "Delete", "Cancel"], destructiveButtonIndex: 1, cancelButtonIndex: 2 },
-                            (i) => { if (i === 0) doEdit(); if (i === 1) doDelete(); }
-                          );
-                        } else {
-                          Alert.alert("Session options", undefined, [
-                            { text: "Edit", onPress: doEdit },
-                            { text: "Delete", style: "destructive", onPress: doDelete },
-                            { text: "Cancel", style: "cancel" },
-                          ]);
-                        }
-                      }}
-                      style={({ pressed }) => ({
-                        flexDirection: "row", alignItems: "center",
-                        paddingVertical: 13, paddingHorizontal: 16,
-                        backgroundColor: pressed ? COLORS.muted : "transparent",
-                      })}
-                    >
+                  <Pressable
+                    key={s.id}
+                    onPress={doEdit}
+                    onLongPress={doDelete}
+                    delayLongPress={800}
+                    style={{
+                      backgroundColor: "#fff",
+                      borderRadius: 12,
+                      padding: 12,
+                      borderWidth: 1,
+                      borderColor: COLORS.border,
+                    }}
+                  >
+                    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
                       <View style={{ flex: 1 }}>
-                        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 2 }}>
-                          <Text style={{ fontSize: 17, fontFamily: "Nunito_800ExtraBold", fontWeight: "800", color: COLORS.ink }}>
-                            {formatUnit(s.total_oz, unit)}
-                          </Text>
-                          {!!durationMin && (
-                            <Text style={{ fontSize: 12, color: COLORS.ink3 }}>{`${durationMin} min`}</Text>
-                          )}
-                          {s.notes != null && (
-                            <Text style={{ fontSize: 12 }}>📝</Text>
-                          )}
-                        </View>
-                        <Text style={{ fontSize: 12, color: COLORS.ink3 }}>
-                          {format(new Date(s.started_at), "EEE, MMM d · h:mm a")}
+                        <Text style={{ fontSize: 15, fontWeight: "600", color: COLORS.ink, marginBottom: 4 }}>
+                          {time}
                         </Text>
-                      </View>
-                      {s.pain_level != null && s.pain_level >= 6 && (
-                        <View style={{ backgroundColor: "#FFF0F5", borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 }}>
-                          <Text style={{ fontSize: 11, fontFamily: "Nunito_600SemiBold", fontWeight: "600", color: COLORS.error }}>pain noted</Text>
+                        <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
+                          <View>
+                            <Text style={{ fontSize: 11, color: COLORS.ink3, marginBottom: 1 }}>Output</Text>
+                            <Text style={{ fontSize: 14, fontWeight: "700", color: COLORS.primary }}>
+                              {formatUnit(totalOz, unit)}
+                            </Text>
+                          </View>
+                          <View>
+                            <Text style={{ fontSize: 11, color: COLORS.ink3, marginBottom: 1 }}>Duration</Text>
+                            <Text style={{ fontSize: 14, fontWeight: "700", color: COLORS.ink }}>
+                              {durationMin}m
+                            </Text>
+                          </View>
+                          {s.pain_level != null && s.pain_level > 0 && (
+                            <View>
+                              <Text style={{ fontSize: 11, color: COLORS.ink3, marginBottom: 1 }}>Pain</Text>
+                              <Text style={{ fontSize: 14, fontWeight: "700", color: "#EA580C" }}>
+                                {s.pain_level}/10
+                              </Text>
+                            </View>
+                          )}
                         </View>
-                      )}
-                      <Text style={{ fontSize: 16, color: COLORS.ink3, marginLeft: 8 }}>›</Text>
-                    </Pressable>
-                  </React.Fragment>
+                      </View>
+                      <Pressable
+                        onPress={doDelete}
+                        style={{
+                          width: 36,
+                          height: 36,
+                          justifyContent: "center",
+                          alignItems: "center",
+                          marginLeft: 8,
+                        }}
+                      >
+                        <Text style={{ fontSize: 20, color: "#EF4444" }}>×</Text>
+                      </Pressable>
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </View>
                 );
               })}
             </View>
