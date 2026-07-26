@@ -937,6 +937,35 @@ export default function DashboardScreen() {
             </View>
           </Pressable>
 
+          {/* ── Viewer Notes (when viewing someone's data) ── */}
+          {viewingUserId && (
+            <View style={{ marginTop: 24, paddingBottom: 20 }}>
+              <Text style={{ fontSize: 12, fontFamily: "Nunito_700Bold", fontWeight: "700", color: COLORS.ink3, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>
+                Notes
+              </Text>
+              <Pressable
+                onPress={() => {
+                  // Open note editor
+                  const person = { people: [] }; // This would come from ViewerSwitcher
+                  // For now, show alert to edit notes
+                  Alert.alert("Notes", "Tap the 'Edit notes' button above to add or edit notes");
+                }}
+                style={{
+                  backgroundColor: "#fff",
+                  borderRadius: 12,
+                  padding: 12,
+                  borderWidth: 1,
+                  borderColor: COLORS.border,
+                  minHeight: 80,
+                }}
+              >
+                <Text style={{ fontSize: 13, color: COLORS.ink2, lineHeight: 18 }}>
+                  Use the "Edit notes" button at the top to add your observations and feedback about this person's data.
+                </Text>
+              </Pressable>
+            </View>
+          )}
+
         </View>
       </ScrollView>
 

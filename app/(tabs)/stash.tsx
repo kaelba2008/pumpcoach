@@ -161,14 +161,23 @@ function EntryCard({
             <Text style={{ fontSize: 12, color: COLORS.ink3 }}>{entry.label}</Text>
           ) : null}
         </View>
-        <Text style={{ fontSize: 12, color: COLORS.ink3, marginTop: 1 }}>
-          {loc?.emoji} {loc?.label}{"  ·  "}{fmtDate(entry.expressed_at)}
-          {tier === "expired"
-            ? "  ·  Expired"
-            : tier === "expires_today"
-            ? `  ·  Expires in ${hours}h`
-            : `  ·  Good until ${format(exp, "MMM d")}`}
-        </Text>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
+          <Text style={{ fontSize: 12, color: COLORS.ink3 }}>
+            {loc?.emoji} {loc?.label}
+          </Text>
+          <Text style={{ fontSize: 12, color: COLORS.ink3 }}>·</Text>
+          <Text style={{ fontSize: 12, color: COLORS.ink3 }}>
+            {fmtDate(entry.expressed_at)}
+          </Text>
+          <Text style={{ fontSize: 12, color: COLORS.ink3 }}>·</Text>
+          <Text style={{ fontSize: 12, color: COLORS.ink3 }}>
+            {tier === "expired"
+              ? "Expired"
+              : tier === "expires_today"
+              ? `Expires in ${hours}h`
+              : `Good until ${format(exp, "MMM d")}`}
+          </Text>
+        </View>
       </View>
 
       {/* Right: chevron */}
@@ -1520,13 +1529,12 @@ export default function StashScreen() {
                   onPress={() => setShowGoal(true)}
                   style={({ pressed }) => ({
                     flexDirection: "row", alignItems: "center", justifyContent: "center",
-                    gap: 8, paddingVertical: 14, borderRadius: 16,
-                    borderWidth: 1.5, borderColor: COLORS.primary + "40",
-                    borderStyle: "dashed",
-                    backgroundColor: pressed ? COLORS.primaryMist : "transparent",
+                    gap: 8, paddingVertical: 12, paddingHorizontal: 16, borderRadius: 12,
+                    borderWidth: 1, borderColor: COLORS.primary,
+                    backgroundColor: pressed ? COLORS.primary + "15" : "#fff",
                   })}
                 >
-                  <Text style={{ fontSize: 16, color: COLORS.primary, lineHeight: 20 }}>+</Text>
+                  <Text style={{ fontSize: 18, color: COLORS.primary, fontWeight: "600" }}>+</Text>
                   <Text style={{ fontSize: 14, fontFamily: "Nunito_600SemiBold", fontWeight: "600", color: COLORS.primary }}>
                     Add another goal
                   </Text>
