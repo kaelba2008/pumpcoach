@@ -256,15 +256,18 @@ export default function DashboardScreen() {
         .order("started_at", { ascending: false }),
       supabase
         .from("stash_entries")
-        .select("oz"),
+        .select("oz")
+        .eq("user_id", user.id),
       supabase
         .from("nursing_sessions")
         .select("*")
+        .eq("user_id", user.id)
         .gte("nursed_at", todayISO)
         .order("nursed_at", { ascending: false }),
       supabase
         .from("pump_sessions")
-        .select("total_oz"),
+        .select("total_oz")
+        .eq("user_id", user.id),
     ]);
     if (sessionRes.data) setSessions(sessionRes.data as PumpSession[]);
     if (stashRes.data)   setStashOz((stashRes.data as StashEntry[]).reduce((s, e) => s + (e.oz ?? 0), 0));

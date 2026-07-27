@@ -61,6 +61,23 @@ export function ViewerSwitcher({ currentViewingUserId, onViewUserChange }: Viewe
 
   return (
     <>
+      {!isViewingOther && people.length > 0 && (
+        <Pressable
+          onPress={handleOpenPicker}
+          style={{
+            backgroundColor: "#fff",
+            borderBottomWidth: 1,
+            borderBottomColor: COLORS.border,
+            paddingHorizontal: 20,
+            paddingVertical: 12,
+          }}
+        >
+          <Text style={{ fontSize: 12, color: COLORS.primary, fontWeight: "600" }}>
+            👁 View client data →
+          </Text>
+        </Pressable>
+      )}
+
       {isViewingOther && currentPerson && (
         <View style={{ backgroundColor: "#fff", borderBottomWidth: 1, borderBottomColor: COLORS.border }}>
           {/* Viewing indicator */}
