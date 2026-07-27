@@ -140,48 +140,42 @@ function EntryCard({
     <Pressable
       onPress={showActions}
       style={({ pressed }) => ({
-        flexDirection: "row", alignItems: "center",
-        paddingVertical: 13, paddingHorizontal: 16,
+        flexDirection: "row", alignItems: "flex-start",
+        paddingVertical: 16, paddingHorizontal: 20,
         backgroundColor: pressed ? COLORS.muted : "transparent",
         opacity: expired ? 0.55 : 1,
+        gap: 12,
       })}
       accessibilityRole="button"
       accessibilityLabel="Stash entry options"
     >
       {/* Left: expiry dot */}
-      <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: EXPIRY_COLOR[tier], marginRight: 12, flexShrink: 0 }} />
+      <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: EXPIRY_COLOR[tier], marginTop: 4, flexShrink: 0 }} />
 
       {/* Center: oz + meta */}
       <View style={{ flex: 1 }}>
-        <View style={{ flexDirection: "row", alignItems: "baseline", gap: 6 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 6 }}>
           <Text style={{ fontSize: 17, fontFamily: "Nunito_700Bold", fontWeight: "700", color: COLORS.ink }}>
             {fmtOz(entry.oz)}
           </Text>
           {entry.label ? (
-            <Text style={{ fontSize: 12, color: COLORS.ink3 }}>{entry.label}</Text>
+            <Text style={{ fontSize: 12, color: COLORS.ink2, fontStyle: "italic" }}>{entry.label}</Text>
           ) : null}
         </View>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
-          <Text style={{ fontSize: 12, color: COLORS.ink3 }}>
-            {loc?.emoji} {loc?.label}
-          </Text>
-          <Text style={{ fontSize: 12, color: COLORS.ink3 }}>·</Text>
-          <Text style={{ fontSize: 12, color: COLORS.ink3 }}>
-            {fmtDate(entry.expressed_at)}
-          </Text>
-          <Text style={{ fontSize: 12, color: COLORS.ink3 }}>·</Text>
-          <Text style={{ fontSize: 12, color: COLORS.ink3 }}>
-            {tier === "expired"
-              ? "Expired"
-              : tier === "expires_today"
-              ? `Expires in ${hours}h`
-              : `Good until ${format(exp, "MMM d")}`}
-          </Text>
-        </View>
+        <Text style={{ fontSize: 12, color: COLORS.ink3, lineHeight: 16 }}>
+          {loc?.emoji} {loc?.label} · {fmtDate(entry.expressed_at)}
+        </Text>
+        <Text style={{ fontSize: 12, color: COLORS.ink3, marginTop: 2 }}>
+          {tier === "expired"
+            ? "Expired"
+            : tier === "expires_today"
+            ? `Expires in ${hours}h`
+            : `Good until ${format(exp, "MMM d")}`}
+        </Text>
       </View>
 
       {/* Right: chevron */}
-      <Text style={{ fontSize: 16, color: COLORS.ink3, marginLeft: 8 }}>›</Text>
+      <Text style={{ fontSize: 16, color: COLORS.ink3, marginTop: 2 }}>›</Text>
     </Pressable>
   );
 }
