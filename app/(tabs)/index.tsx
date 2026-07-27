@@ -256,8 +256,7 @@ export default function DashboardScreen() {
         .order("started_at", { ascending: false }),
       supabase
         .from("stash_entries")
-        .select("oz")
-        .eq("user_id", user.id),
+        .select("oz"),
       supabase
         .from("nursing_sessions")
         .select("*")
