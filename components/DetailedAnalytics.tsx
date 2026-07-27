@@ -122,26 +122,32 @@ export function DetailedAnalytics({ sessions, unit }: DetailedAnalyticsProps) {
     if (!hasEnoughData) {
       recommendations.push("Keep logging to build your data history — patterns will appear after 7+ days");
     } else {
-      if (sessionsPerDay7 < 8) {
-        recommendations.push("Increase frequency to 8+ sessions daily to maintain supply");
+      // Always recommend consistency focus first
+      recommendations.push("Focus on consistent session timing — this matters more than raw output");
+
+      if (painAvg > 4) {
+        recommendations.push("Ensure proper flange fit — wrong size reduces efficiency and causes discomfort");
       }
       if (avgEfficiency < 0.4) {
-        recommendations.push("Session efficiency is low — consider adjusting suction or duration");
-      }
-      if (painAvg > 4) {
-        recommendations.push("High pain levels detected — check flange size and pressure settings");
+        recommendations.push("Try Pump Pause Pump: pump until milk stops flowing, take 5 min break, pump again");
       }
       if (slowLetdownPct > 40) {
-        recommendations.push("Frequent slow letdowns — try massage mode or warm compress beforehand");
+        recommendations.push("Warm compress before pumping improves letdown — try heating pad for 2-3 min");
       }
-      if (weekChange < -15) {
-        recommendations.push("Output is declining — ensure adequate hydration, rest, and nutrition");
+      if (sessionsPerDay7 < 8 || avgEfficiency < 0.35) {
+        recommendations.push("Check pump valves and membranes — worn parts reduce suction efficiency");
       }
-      if (consistency < 70) {
-        recommendations.push("Highly variable output — aim for more consistent session timing");
+      if (weekChange < -15 || avgDaily7 < 12) {
+        recommendations.push("Ensure adequate hydration, rest, and nutrition — these directly affect supply");
+      }
+      if (avgEfficiency < 0.45) {
+        recommendations.push("Try hand expression between suction cycles to stimulate additional letdowns");
+      }
+      if (consistency >= 70 && avgEfficiency >= 0.4) {
+        recommendations.push("Your sessions are efficient and consistent — you're doing great!");
       }
       if (bestSettings && bestSettings.suction && bestSettings.speed) {
-        recommendations.push(`Your best settings: Suction ${bestSettings.suction}, Speed ${bestSettings.speed}`);
+        recommendations.push(`Consider adjusting pumping settings: your best sessions used Suction ${bestSettings.suction}, Speed ${bestSettings.speed}`);
       }
     }
 

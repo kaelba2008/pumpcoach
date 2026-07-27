@@ -18,6 +18,19 @@ export function SessionAnalysis({ sessions, unit }: SessionAnalysisProps) {
     const totalMinutes = sessions.reduce((sum, s) => sum + ((s.duration_sec ?? 0) / 60), 0);
     const efficiency = totalMinutes > 0 ? totalOz / totalMinutes : 0;
 
+    // Oz per hour (only if no gaps >3 hours between sessions)
+    const sortedByTime = [...sessions].sort((a, b) => new Date(a.started_at).getTime() - new Date(b.started_at).getTime());
+    let hasLargeGap = false;
+    for (let i = 0; i < sortedByTime.length - 1; i++) {
+      const gap = (new Date(sortedByTime[i + 1].started_at).getTime() - new Date(sortedByTime[i].started_at).getTime()) / (1000 * 60 * 60);
+      if (gap > 3) {
+        hasLargeGap = true;
+        break;
+      }
+    }
+    const totalHours = totalMinutes / 60;
+    const ozPerHour = !hasLargeGap && totalHours > 0 ? totalOz / totalHours : null;
+
     // Session quality score (0-100)
     const avgOz = totalOz / sessions.length;
     const avgDuration = totalMinutes / sessions.length;
@@ -64,6 +77,7 @@ export function SessionAnalysis({ sessions, unit }: SessionAnalysisProps) {
 
     return {
       efficiency: Math.round(efficiency * 100) / 100,
+      ozPerHour: ozPerHour ? Math.round(ozPerHour * 100) / 100 : null,
       qualityScore,
       trendPct: Math.round(trendPct),
       bestHour,
@@ -100,16 +114,22 @@ export function SessionAnalysis({ sessions, unit }: SessionAnalysisProps) {
 
   const recommendations = [];
   if (analysis.hasPainIssue) {
-    recommendations.push("Consider adjusting flange size or suction level to reduce pain");
+    recommendations.push("Ensure proper flange fit — wrong size reduces efficiency and causes pain");
   }
   if (analysis.hasLetdownIssue) {
-    recommendations.push("Letdown time is slow — try massage mode or warm compress before sessions");
+    recommendations.push("Warm compress before pumping improves letdown");
   }
-  if (analysis.efficiency < 0.5) {
-    recommendations.push("Session efficiency is lower — try adding duration or increasing suction");
+  if (analysis.efficiency < 0.35) {
+    recommendations.push("Try Pump Pause Pump: pump until milk stops, take 5 min break, pump again");
+  }
+  if (analysis.efficiency < 0.45 && analysis.efficiency >= 0.35) {
+    recommendations.push("Try hand expression between suction cycles to stimulate additional letdowns");
   }
   if (analysis.trendPct < -10) {
-    recommendations.push("Output is decreasing — ensure adequate hydration and rest");
+    recommendations.push("Ensure adequate hydration, rest, and nutrition — these directly affect supply");
+  }
+  if (recommendations.length === 0) {
+    recommendations.push("Your sessions are consistent and efficient — keep up the great work!");
   }
 
   return (
@@ -130,8 +150,11 @@ export function SessionAnalysis({ sessions, unit }: SessionAnalysisProps) {
       {/* Efficiency & Trend */}
       <View style={{ flexDirection: "row", gap: 3, marginBottom: 16 }}>
         <View style={{ flex: 1 }}>
-          <Text className="text-xs text-ink-3 font-sans-semi mb-1">Efficiency</Text>
-          <Text className="text-lg font-sans-bold text-ink">{analysis.efficiency} oz/min</Text>
+          <Text className="text-xs text-ink-3 font-sans-semi mb-1">Output per Hour</Text>
+          <Text className="text-lg font-sans-bold text-ink">
+            {analysis.ozPerHour ? `${formatUnit(analysis.ozPerHour, unit)}/hr` : "—"}
+          </Text>
+          <Text className="text-xs text-ink-3 mt-0.5">typical: ~1 oz/hr</Text>
         </View>
         <View style={{ flex: 1 }}>
           <Text className="text-xs text-ink-3 font-sans-semi mb-1">Trend (vs prior)</Text>
