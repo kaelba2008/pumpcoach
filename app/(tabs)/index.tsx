@@ -20,6 +20,7 @@ import { NursingEntryModal } from "../../components/NursingEntryModal";
 import { SessionAnalysis } from "../../components/SessionAnalysis";
 import { DetailedAnalytics } from "../../components/DetailedAnalytics";
 import { ViewerSwitcher } from "../../components/ViewerSwitcher";
+import { ViewerDataDisplay } from "../../components/ViewerDataDisplay";
 import { useViewerAccess } from "../../hooks/useViewerAccess";
 import { fmtOz, babyAgeLabel } from "../../lib/formatters";
 import { useUnit } from "../../hooks/useUnit";
@@ -207,7 +208,7 @@ export default function DashboardScreen() {
   const { profile, isPremium, trialEndsAt } = useAuthStore();
   const { active }     = useSessionStore();
   const { unit }       = useUnit();
-  const { refetch: refetchViewerAccess } = useViewerAccess();
+  const { people, refetch: refetchViewerAccess } = useViewerAccess();
 
   const [sessions,           setSessions]           = useState<PumpSession[]>([]);
   const [stashOz,            setStashOz]            = useState<number>(0);
@@ -252,12 +253,16 @@ export default function DashboardScreen() {
     // Refetch viewer access in case user was just invited
     refetchViewerAccess();
 
+    // If viewing someone else's data, fetch their sessions (all historical, not just 7d)
+    const sessionQueryUserId = viewingUserId || user.id;
+    const sessionSinceDate = viewingUserId ? subDays(new Date(), 90).toISOString() : since; // 90 days for viewers
+
     const [sessionRes, stashRes, nursingRes, lifetimeRes] = await Promise.all([
       supabase
         .from("pump_sessions")
         .select("*")
-        .eq("user_id", user.id)
-        .gte("started_at", since)
+        .eq("user_id", sessionQueryUserId)
+        .gte("started_at", sessionSinceDate)
         .order("started_at", { ascending: false }),
       supabase
         .from("stash_entries")
@@ -271,7 +276,7 @@ export default function DashboardScreen() {
       supabase
         .from("pump_sessions")
         .select("total_oz")
-        .eq("user_id", user.id),
+        .eq("user_id", sessionQueryUserId),
     ]);
     if (sessionRes.data) setSessions(sessionRes.data as PumpSession[]);
     if (stashRes.data)   setStashOz((stashRes.data as StashEntry[]).reduce((s, e) => s + (e.oz ?? 0), 0));
@@ -453,7 +458,20 @@ export default function DashboardScreen() {
         {/* Viewer Switcher (for IBCLCs/partners viewing others' data) */}
         <ViewerSwitcher currentViewingUserId={viewingUserId} onViewUserChange={setViewingUserId} />
 
-        <View style={{ paddingHorizontal: 20, marginTop: -16 }}>
+        {/* Show viewer data display when viewing someone else's data */}
+        {viewingUserId && (() => {
+          const person = people.find(p => p.id === viewingUserId);
+          return (
+            <ViewerDataDisplay
+              sessions={sessions}
+              personInitials={person?.initials ?? "?"}
+              unit={unit}
+            />
+          );
+        })()}
+
+        {/* Normal home screen content (hidden when viewing someone else) */}
+        {!viewingUserId && <View style={{ paddingHorizontal: 20, marginTop: -16 }}>
 
           {/* ── Session Analysis ────────────────────────── */}
           {todaySessions.length > 0 && (
@@ -971,6 +989,7 @@ export default function DashboardScreen() {
           )}
 
         </View>
+        )}
       </ScrollView>
 
       <NursingEntryModal

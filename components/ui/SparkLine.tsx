@@ -1,5 +1,5 @@
 import React from "react";
-import { View } from "react-native";
+import { View, Pressable } from "react-native";
 import Svg, { Path, Circle, Line, Text as SvgText } from "react-native-svg";
 
 interface SparkLineProps {
@@ -12,6 +12,7 @@ interface SparkLineProps {
   // Optional secondary series (e.g. hydration glasses) — normalized independently
   secondaryData?: number[];
   secondaryColor?: string;
+  onPointPress?: (index: number) => void;
 }
 
 export function SparkLine({
@@ -23,6 +24,7 @@ export function SparkLine({
   fillColor = "rgba(74,94,96,0.08)",
   secondaryData,
   secondaryColor = "#E8854A",
+  onPointPress,
 }: SparkLineProps) {
   if (!data || data.length < 2) return <View style={{ width, height }} />;
 
@@ -68,43 +70,64 @@ export function SparkLine({
   }
 
   return (
-    <Svg width={width} height={height}>
-      {/* Fill under primary */}
-      <Path d={fillD} fill={fillColor} />
-      {/* Primary line */}
-      <Path d={pathD} stroke={color} strokeWidth={2} fill="none" strokeLinecap="round" />
-      {/* Primary end dot */}
-      <Circle cx={lastPt.x} cy={lastPt.y} r={4} fill={color} />
+    <View style={{ position: "relative", width, height }}>
+      <Svg width={width} height={height}>
+        {/* Fill under primary */}
+        <Path d={fillD} fill={fillColor} />
+        {/* Primary line */}
+        <Path d={pathD} stroke={color} strokeWidth={2} fill="none" strokeLinecap="round" />
+        {/* Primary end dot */}
+        <Circle cx={lastPt.x} cy={lastPt.y} r={4} fill={color} />
 
-      {/* Secondary (hydration) dashed line */}
-      {secPathD && (
-        <Path
-          d={secPathD}
-          stroke={secondaryColor}
-          strokeWidth={1.5}
-          fill="none"
-          strokeLinecap="round"
-          strokeDasharray="4,3"
-          opacity={0.8}
-        />
-      )}
-      {secEnd && (
-        <Circle cx={secEnd.x} cy={secEnd.y} r={3} fill={secondaryColor} opacity={0.8} />
-      )}
+        {/* Secondary (hydration) dashed line */}
+        {secPathD && (
+          <Path
+            d={secPathD}
+            stroke={secondaryColor}
+            strokeWidth={1.5}
+            fill="none"
+            strokeLinecap="round"
+            strokeDasharray="4,3"
+            opacity={0.8}
+          />
+        )}
+        {secEnd && (
+          <Circle cx={secEnd.x} cy={secEnd.y} r={3} fill={secondaryColor} opacity={0.8} />
+        )}
 
-      {/* Day labels */}
-      {labels?.map((label, i) => (
-        <SvgText
-          key={i}
-          x={padX + (i / (data.length - 1)) * w}
-          y={height - 2}
-          fontSize={9}
-          fill="#B09880"
-          textAnchor="middle"
-        >
-          {label}
-        </SvgText>
-      ))}
-    </Svg>
+        {/* Day labels */}
+        {labels?.map((label, i) => (
+          <SvgText
+            key={i}
+            x={padX + (i / (data.length - 1)) * w}
+            y={height - 2}
+            fontSize={9}
+            fill="#B09880"
+            textAnchor="middle"
+          >
+            {label}
+          </SvgText>
+        ))}
+      </Svg>
+
+      {/* Invisible touchable areas for each point */}
+      {onPointPress && (
+        <View style={{ position: "absolute", width, height, flexDirection: "row" }}>
+          {pts.map((pt, i) => (
+            <Pressable
+              key={i}
+              onPress={() => onPointPress(i)}
+              style={{
+                position: "absolute",
+                left: pt.x - 20,
+                top: pt.y - 20,
+                width: 40,
+                height: 40,
+              }}
+            />
+          ))}
+        </View>
+      )}
+    </View>
   );
 }
