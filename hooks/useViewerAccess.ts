@@ -14,7 +14,7 @@ interface ViewerAccessPerson {
 export function useViewerAccess() {
   const { user } = useAuthStore();
   const [people, setPeople] = useState<ViewerAccessPerson[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const fetchPeople = useCallback(async () => {
     if (!user) return;

@@ -20,6 +20,7 @@ import { NursingEntryModal } from "../../components/NursingEntryModal";
 import { SessionAnalysis } from "../../components/SessionAnalysis";
 import { DetailedAnalytics } from "../../components/DetailedAnalytics";
 import { ViewerSwitcher } from "../../components/ViewerSwitcher";
+import { useViewerAccess } from "../../hooks/useViewerAccess";
 import { fmtOz, babyAgeLabel } from "../../lib/formatters";
 import { useUnit } from "../../hooks/useUnit";
 import { formatUnit, ozToMl, mlToOz } from "../../lib/units";
@@ -206,6 +207,7 @@ export default function DashboardScreen() {
   const { profile, isPremium, trialEndsAt } = useAuthStore();
   const { active }     = useSessionStore();
   const { unit }       = useUnit();
+  const { refetch: refetchViewerAccess } = useViewerAccess();
 
   const [sessions,           setSessions]           = useState<PumpSession[]>([]);
   const [stashOz,            setStashOz]            = useState<number>(0);
@@ -246,6 +248,9 @@ export default function DashboardScreen() {
     const since     = subDays(new Date(), 7).toISOString();
     const todayISO  = startOfDay(new Date()).toISOString();
     const todayDate = format(new Date(), "yyyy-MM-dd");
+
+    // Refetch viewer access in case user was just invited
+    refetchViewerAccess();
 
     const [sessionRes, stashRes, nursingRes, lifetimeRes] = await Promise.all([
       supabase
