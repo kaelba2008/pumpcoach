@@ -121,8 +121,11 @@ export function ViewerDataDisplay({ sessions, personInitials, unit }: ViewerData
     <View>
       {/* Header */}
       <View style={{ paddingHorizontal: 20, marginBottom: 16 }}>
-        <Text style={{ fontSize: 12, color: COLORS.ink3, textTransform: "uppercase", fontWeight: "600", marginBottom: 8 }}>
-          Viewing: {personInitials}
+        <Text style={{ fontSize: 11, color: COLORS.ink3, textTransform: "uppercase", fontWeight: "600", letterSpacing: 0.5, marginBottom: 8 }}>
+          Viewing
+        </Text>
+        <Text style={{ fontSize: 18, fontFamily: SERIF, fontWeight: "600", color: COLORS.ink }}>
+          {personInitials}
         </Text>
       </View>
 
