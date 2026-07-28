@@ -205,7 +205,7 @@ function EditSessionModal({ session, visible, onClose, onSaved }: EditSessionMod
 
 export default function DashboardScreen() {
   const router         = useRouter();
-  const { profile, isPremium, trialEndsAt } = useAuthStore();
+  const { user, profile, isPremium, trialEndsAt } = useAuthStore();
   const { active }     = useSessionStore();
   const { unit }       = useUnit();
   const { people, refetch: refetchViewerAccess } = useViewerAccess();
@@ -989,7 +989,7 @@ export default function DashboardScreen() {
           )}
 
         </View>
-        )}
+        }
       </ScrollView>
 
       <NursingEntryModal
