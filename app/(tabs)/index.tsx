@@ -318,6 +318,9 @@ export default function DashboardScreen() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
+  // Refresh whenever viewing user changes
+  useEffect(() => { loadData(); }, [viewingUserId, loadData]);
+
   // Refresh whenever the tab/screen comes back into focus (e.g. after saving a session)
   useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
 
