@@ -473,6 +473,52 @@ export default function DashboardScreen() {
         {/* Normal home screen content (hidden when viewing someone else) */}
         {!viewingUserId && <View style={{ paddingHorizontal: 20, marginTop: -16 }}>
 
+          {/* ── Session CTAs ────────────────────────────── */}
+          <View style={{ marginBottom: 16 }}>
+            <Pressable onPress={() => router.push("/session/active")}>
+              <View style={{
+                backgroundColor: COLORS.primary,
+                borderRadius: 20, paddingVertical: 20, paddingHorizontal: 24,
+                flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+                shadowColor: COLORS.primary, shadowOpacity: 0.35, shadowRadius: 14, elevation: 6,
+              }}>
+                <View>
+                  <Text style={{ fontFamily: SERIF, color: "#fff", fontSize: 22, fontWeight: "400" }}>
+                    Begin a session
+                  </Text>
+                  <Text style={{ color: "rgba(255,255,255,0.6)", fontSize: 13, marginTop: 3 }}>
+                    Tap to start your pump timer
+                  </Text>
+                </View>
+                <Text style={{ fontSize: 40 }}>🍼</Text>
+              </View>
+            </Pressable>
+
+            <View style={{ flexDirection: "row", justifyContent: "center", gap: 20, paddingTop: 4 }}>
+              <Pressable
+                onPress={() => router.push("/session/log" as any)}
+                style={{ flexDirection: "row", alignItems: "center", gap: 5, paddingVertical: 10 }}
+              >
+                <Text style={{ fontSize: 14 }}>📋</Text>
+                <Text style={{ fontSize: 13, fontFamily: "Nunito_600SemiBold", fontWeight: "600", color: COLORS.ink2 }}>
+                  Log manually
+                </Text>
+              </Pressable>
+
+              {showNursingLog && (
+                <Pressable
+                  onPress={() => { setEditingNursing(null); setNursingModal(true); }}
+                  style={{ flexDirection: "row", alignItems: "center", gap: 5, paddingVertical: 10 }}
+                >
+                  <Text style={{ fontSize: 14 }}>🤱</Text>
+                  <Text style={{ fontSize: 13, fontFamily: "Nunito_600SemiBold", fontWeight: "600", color: COLORS.ink2 }}>
+                    Log nursing
+                  </Text>
+                </Pressable>
+              )}
+            </View>
+          </View>
+
           {/* ── Session Analysis ────────────────────────── */}
           {todaySessions.length > 0 && (
             <View style={{ marginBottom: 16 }}>
@@ -541,52 +587,6 @@ export default function DashboardScreen() {
               </View>
             </Pressable>
           )}
-
-          {/* ── Session CTAs ────────────────────────────── */}
-          <View style={{ marginBottom: 16 }}>
-            <Pressable onPress={() => router.push("/session/active")}>
-              <View style={{
-                backgroundColor: COLORS.primary,
-                borderRadius: 20, paddingVertical: 20, paddingHorizontal: 24,
-                flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-                shadowColor: COLORS.primary, shadowOpacity: 0.35, shadowRadius: 14, elevation: 6,
-              }}>
-                <View>
-                  <Text style={{ fontFamily: SERIF, color: "#fff", fontSize: 22, fontWeight: "400" }}>
-                    Begin a session
-                  </Text>
-                  <Text style={{ color: "rgba(255,255,255,0.6)", fontSize: 13, marginTop: 3 }}>
-                    Tap to start your pump timer
-                  </Text>
-                </View>
-                <Text style={{ fontSize: 40 }}>🍼</Text>
-              </View>
-            </Pressable>
-
-            <View style={{ flexDirection: "row", justifyContent: "center", gap: 20, paddingTop: 4 }}>
-              <Pressable
-                onPress={() => router.push("/session/log" as any)}
-                style={{ flexDirection: "row", alignItems: "center", gap: 5, paddingVertical: 10 }}
-              >
-                <Text style={{ fontSize: 14 }}>📋</Text>
-                <Text style={{ fontSize: 13, fontFamily: "Nunito_600SemiBold", fontWeight: "600", color: COLORS.ink2 }}>
-                  Log manually
-                </Text>
-              </Pressable>
-
-              {showNursingLog && (
-                <Pressable
-                  onPress={() => { setEditingNursing(null); setNursingModal(true); }}
-                  style={{ flexDirection: "row", alignItems: "center", gap: 5, paddingVertical: 10 }}
-                >
-                  <Text style={{ fontSize: 14 }}>🤱</Text>
-                  <Text style={{ fontSize: 13, fontFamily: "Nunito_600SemiBold", fontWeight: "600", color: COLORS.ink2 }}>
-                    Log nursing
-                  </Text>
-                </Pressable>
-              )}
-            </View>
-          </View>
 
           {/* ── DELETED reminders banner — bell is now in hero ── */}
           {false && (
@@ -774,7 +774,7 @@ export default function DashboardScreen() {
           {/* ── Today's nursing sessions ─────────────────── */}
           {showNursingLog && nursingSessions.length > 0 && (
             <>
-              <Text style={{ fontSize: 11, fontFamily: "Nunito_700Bold", fontWeight: "700", color: COLORS.ink3, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>
+              <Text style={{ fontSize: 11, fontFamily: "Nunito_700Bold", fontWeight: "700", color: COLORS.ink3, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10, marginTop: 16 }}>
                 Today's nursing
               </Text>
               <View style={{ backgroundColor: "#fff", borderRadius: 20, overflow: "hidden", borderWidth: 1, borderColor: COLORS.border, marginBottom: 20 }}>
@@ -806,7 +806,7 @@ export default function DashboardScreen() {
                         }}
                         style={({ pressed }) => ({
                           flexDirection: "row", alignItems: "center", gap: 12,
-                          paddingVertical: 12, paddingHorizontal: 16,
+                          paddingVertical: 16, paddingHorizontal: 16,
                           backgroundColor: pressed ? COLORS.muted : "transparent",
                         })}
                       >
