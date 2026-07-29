@@ -14,6 +14,7 @@ import { OzInput } from "../../components/ui/OzInput";
 import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
 import { PainLevelPicker } from "../../components/ui/PainLevelPicker";
+import { PhaseSettings } from "../../components/ui/PhaseSettings";
 import { SessionInsightSheet } from "../../components/SessionInsightSheet";
 import { fmtMs } from "../../lib/formatters";
 import { LETDOWN_OPTIONS, COLORS, SERIF } from "../../lib/constants";
