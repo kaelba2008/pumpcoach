@@ -97,8 +97,8 @@ function getStaticInsight(props: CoachCardProps): StaticInsight {
     const diff = (avgOz - todayOz).toFixed(1);
     return {
       emoji: "💛",
-      headline: "A dip is normal",
-      body: `You are ${diff} oz below your usual today. Supply naturally varies with sleep, stress, hydration, and hormones. One lower day will not affect your overall supply — just stay hydrated and keep pumping.`,
+      headline: "Normal variation",
+      body: `You are ${diff} oz below your usual today. This is very common and can reflect more nursing sessions, time of day, sleep, hydration, or stress. It does not mean your supply is dropping — patterns over several days matter far more than any single day.`,
       action: "Ask the coach",
       actionRoute: "/(tabs)/coach",
     };

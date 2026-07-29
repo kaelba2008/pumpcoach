@@ -9,10 +9,10 @@ interface Props {
 }
 
 function scoreLabel(s: number): { label: string; color: string } {
-  if (s >= 90) return { label: "Excellent",       color: COLORS.sage   };
-  if (s >= 75) return { label: "Good",            color: COLORS.primary };
-  if (s >= 60) return { label: "Fair",            color: COLORS.amber  };
-  return              { label: "Needs attention", color: COLORS.error  };
+  if (s >= 90) return { label: "Excellent",  color: COLORS.sage   };
+  if (s >= 75) return { label: "Good",       color: COLORS.primary };
+  if (s >= 60) return { label: "Fair",       color: COLORS.amber  };
+  return              { label: "Keep going", color: COLORS.amber  };
 }
 
 export function EfficiencyScore({ score, size = 72 }: Props) {
@@ -50,10 +50,41 @@ export function calcEfficiencyScore(params: {
   durationSec: number;
   totalOz: number;
   avgOz: number;
+  /** ISO timestamp when this session started — used to compute gap from previous session */
+  sessionStartedAt?: string;
+  /** ISO timestamp when the previous session ended — used to normalize for pumping frequency */
+  prevSessionEndedAt?: string;
+  /** Mean inter-session gap (hours) from recent history — used to cap the gap so erratic
+   *  tracking (one logged session after a long untracked stretch) doesn't inflate the score */
+  typicalGapHours?: number;
 }): number {
-  const { durationSec, totalOz, avgOz } = params;
+  const { durationSec, totalOz, avgOz, sessionStartedAt, prevSessionEndedAt, typicalGapHours } = params;
   const min = durationSec / 60;
   const ozPerMin = min > 0 ? totalOz / min : 0;
+
+  // Gap since previous session — default to 3h (a "normal" gap) when unknown
+  let gapHours = 3;
+  if (sessionStartedAt && prevSessionEndedAt) {
+    const gapMs = new Date(sessionStartedAt).getTime() - new Date(prevSessionEndedAt).getTime();
+    if (gapMs > 0) gapHours = Math.min(gapMs / 3_600_000, 24); // cap at 24h
+  }
+
+  // Guard against erratic tracking: if this gap is more than 2.5× their typical,
+  // it's likely they pumped in between and just didn't log it. Fall back to typical.
+  const effectiveGapHours = typicalGapHours && typicalGapHours > 0
+    ? Math.min(gapHours, typicalGapHours * 2.5)
+    : gapHours;
+
+  // Gap factor normalises oz/min expectations relative to breast fullness.
+  // Shorter gap → breast less full → lower oz/min is expected.
+  // Longer gap  → breast fuller   → higher oz/min is expected.
+  const gapFactor = effectiveGapHours < 2 ? 0.65
+                  : effectiveGapHours < 5 ? 1.0
+                  : effectiveGapHours < 8 ? 1.2
+                  : 1.35;
+
+  // Effective oz/min scaled to a "standard 3-hour gap" baseline
+  const normalizedOzPerMin = ozPerMin / gapFactor;
 
   let score = 70; // base
 
@@ -64,17 +95,19 @@ export function calcEfficiencyScore(params: {
   else if (min < 10)              score -= 15;
   else if (min > 30)              score -= 10;
 
-  // oz/min efficiency
-  if (ozPerMin >= 0.25)      score += 15;
-  else if (ozPerMin >= 0.18) score += 8;
-  else if (ozPerMin >= 0.12) score += 3;
-  else if (ozPerMin < 0.08 && totalOz > 0) score -= 10;
+  // oz/min efficiency — scored against gap-normalised rate
+  if (normalizedOzPerMin >= 0.25)      score += 15;
+  else if (normalizedOzPerMin >= 0.18) score += 8;
+  else if (normalizedOzPerMin >= 0.12) score += 3;
+  else if (normalizedOzPerMin < 0.08 && totalOz > 0) score -= 10;
 
-  // vs average
+  // vs average — soften penalty for short gaps (less milk available by design)
   if (avgOz > 0) {
     const ratio = totalOz / avgOz;
-    if (ratio >= 0.9)  score += 5;
-    else if (ratio < 0.6) score -= 8;
+    const highThreshold = 0.9;
+    const lowThreshold  = effectiveGapHours < 2 ? 0.35 : 0.6; // short gap → expect less vs avg
+    if (ratio >= highThreshold)   score += 5;
+    else if (ratio < lowThreshold) score -= 8;
   }
 
   return Math.max(10, Math.min(100, Math.round(score)));

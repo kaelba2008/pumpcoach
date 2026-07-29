@@ -21,9 +21,9 @@ export function useViewerAccess() {
     setLoading(true);
 
     try {
-      // Get all viewer_access records where this user is the viewer
+      // Get all viewer_accounts records where this user is the viewer
       const { data: accessData, error: accessError } = await supabase
-        .from("viewer_access")
+        .from("viewer_accounts")
         .select("owner_id")
         .eq("viewer_id", user.id);
 

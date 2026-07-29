@@ -95,7 +95,7 @@ export default function PumpHistoryScreen() {
         text: "Delete",
         style: "destructive",
         onPress: async () => {
-          await supabase.from("pump_sessions").delete().eq("id", session.id);
+          await supabase.from("pump_sessions").delete().eq("id", session.id).eq("user_id", user!.id);
           setSessions((prev) => prev.filter((s) => s.id !== session.id));
         },
       },

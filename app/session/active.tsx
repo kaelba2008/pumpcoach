@@ -32,6 +32,8 @@ interface SavedSession {
   leftOz: number;
   rightOz: number;
   painLevel: number | null;
+  startedAt: string;
+  prevSessionEndedAt?: string;
 }
 
 export default function ActiveSessionScreen() {
@@ -217,6 +219,7 @@ export default function ActiveSessionScreen() {
       const { data: recent } = await supabase
         .from("pump_sessions")
         .select("id, total_oz, started_at, duration_sec, pain_level")
+        .eq("user_id", user!.id)
         .gte("started_at", since)
         .order("started_at", { ascending: false });
 
@@ -240,8 +243,18 @@ export default function ActiveSessionScreen() {
         ? baselineCounts.reduce((a, b) => a + b, 0) / baselineCounts.length
         : 0;
 
+      // pastSessions[0] is the session we just saved; [1] is the one before it
+      const prevSession = pastSessions[1];
+      const prevSessionEndedAt = prevSession
+        ? new Date(new Date(prevSession.started_at).getTime() + (prevSession.duration_sec ?? 0) * 1000).toISOString()
+        : undefined;
+
       store.clearSession();
-      setInsightData({ totalOz, durationSec, leftOz: resolvedLeft, rightOz: resolvedRight, painLevel: active.pain_level });
+      setInsightData({
+        totalOz, durationSec, leftOz: resolvedLeft, rightOz: resolvedRight, painLevel: active.pain_level,
+        startedAt: new Date(active.startedAt).toISOString(),
+        prevSessionEndedAt,
+      });
       setInsightAvgOz(avgOz);
       setSessionCount(todayCount);
       setTypicalDailyCount(typicalDaily);

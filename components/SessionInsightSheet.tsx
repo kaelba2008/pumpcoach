@@ -33,6 +33,8 @@ interface SessionInsightProps {
     leftOz: number;
     rightOz: number;
     painLevel: number | null;
+    startedAt: string;
+    prevSessionEndedAt?: string;
   };
   avgOz: number;
   sessionCountToday: number;
@@ -49,6 +51,24 @@ interface SessionInsightProps {
 }
 
 // ── Static helpers ────────────────────────────────────────────────────────────
+
+/**
+ * Returns the mean inter-session gap (hours) from recent history, capped at 12h per gap
+ * so that genuine long breaks (skipped days, illness) don't skew the typical.
+ * Returns undefined if there isn't enough history to be meaningful (< 4 sessions → < 3 gaps).
+ */
+function computeTypicalGapHours(sessions: SessionRecord[]): number | undefined {
+  if (sessions.length < 4) return undefined;
+  const sorted = [...sessions].sort(
+    (a, b) => new Date(a.started_at).getTime() - new Date(b.started_at).getTime()
+  );
+  const gaps: number[] = [];
+  for (let i = 1; i < sorted.length; i++) {
+    const gapH = (new Date(sorted[i].started_at).getTime() - new Date(sorted[i - 1].started_at).getTime()) / 3_600_000;
+    if (gapH < 12) gaps.push(gapH);
+  }
+  return gaps.length >= 3 ? gaps.reduce((a, b) => a + b, 0) / gaps.length : undefined;
+}
 
 function getDeltaLabel(
   oz: number,
@@ -103,12 +123,12 @@ function getDeltaLabel(
     };
 
   if (pct < 20)
-    return { label: `${diffLabel} below average`, color: COLORS.amber, blurb: "A slight dip is completely normal and happens to everyone. One lower session will not affect your overall supply." };
+    return { label: `${diffLabel} below average`, color: COLORS.amber, blurb: "A slight dip is completely normal and happens to everyone. If you have been nursing more lately, that is likely the reason — milk going to baby first is a good thing. One lower session will not affect your overall supply." };
 
   return {
     label: `${diffLabel} below average`,
-    color: COLORS.error,
-    blurb: "Supply naturally varies with hydration, sleep, stress, and time of day. This single session does not define your supply — patterns over days matter more.",
+    color: COLORS.amber,
+    blurb: "Sessions vary with sleep, hydration, stress, time of day, clogs, and how much your baby has nursed recently. If you have been nursing more, it is expected to pump less — your body is meeting demand another way. One session does not define your supply.",
   };
 }
 
@@ -177,16 +197,20 @@ export function SessionInsightSheet({
 }: SessionInsightProps) {
   const { profile } = useAuthStore();
   const { unit } = useUnit();
+  const typicalGapHours = computeTypicalGapHours(sessions);
   const score = calcEfficiencyScore({
-    durationSec: session.durationSec,
-    totalOz:     session.totalOz,
+    durationSec:        session.durationSec,
+    totalOz:            session.totalOz,
     avgOz,
+    sessionStartedAt:   session.startedAt,
+    prevSessionEndedAt: session.prevSessionEndedAt,
+    typicalGapHours,
   });
   const delta = getDeltaLabel(
     session.totalOz, avgOz, unit, pumpedAfterNursing,
     sessionCountToday, typicalDailySessionCount,
   );
-  const ozMin = session.durationSec > 0 ? session.totalOz / (session.durationSec / 60) : 0;
+  const ozMin = session.durationSec >= 30 ? session.totalOz / (session.durationSec / 60) : 0;
   const rateLabel = unit === "ml" ? "ml/min" : "oz/min";
   const rateValue = ozMin > 0
     ? unit === "ml" ? String(Math.round(ozMin * 29.57)) : ozMin.toFixed(2)
@@ -226,7 +250,7 @@ export function SessionInsightSheet({
     const oz = unit === "ml" ? raw / 29.5735 : raw;
     const goalLabel = stashGoalId ? stashGoals.find(g => g.id === stashGoalId)?.goal_name ?? null : null;
     setStashSaving(true);
-    await supabase.from("stash_entries").insert({
+    const { error } = await supabase.from("stash_entries").insert({
       user_id:      userId,
       expressed_at: new Date().toISOString(),
       oz,
@@ -234,7 +258,7 @@ export function SessionInsightSheet({
       label:        goalLabel,
     });
     setStashSaving(false);
-    setStashSaved(true);
+    if (!error) setStashSaved(true);
   };
 
   return (
@@ -402,7 +426,7 @@ export function SessionInsightSheet({
                   {[
                     { id: "freezer", label: "Freezer" },
                     { id: "fridge",  label: "Fridge" },
-                    { id: "counter", label: "Counter" },
+                    { id: "other",   label: "Counter" },
                   ].map(({ id, label }) => (
                     <Pressable
                       key={id}

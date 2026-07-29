@@ -38,7 +38,7 @@ export default function ViewerInviteScreen() {
     if (step === "sign-in" && session && inviteId) {
       acceptInvite();
     }
-  }, [session, step]);
+  }, [session, step, inviteId]);
 
   async function verifyToken() {
     const { data, error } = await supabase
@@ -49,7 +49,6 @@ export default function ViewerInviteScreen() {
 
     if (error || !data) { setStep("invalid"); return; }
     if (data.status === "revoked") { setStep("invalid"); return; }
-    if (new Date(data.expires_at) < new Date()) { setStep("invalid"); return; }
 
     setInviteId(data.id);
     setOwnerId(data.owner_id);
@@ -58,13 +57,18 @@ export default function ViewerInviteScreen() {
     setOwnerName(name);
 
     if (data.status === "accepted") {
-      // Already accepted — if they're signed in as the right viewer just route them
+      // Already accepted — expiry doesn't matter, the viewer relationship exists.
+      // If already signed in, route directly; otherwise prompt sign-in to regain access.
       if (session) {
         await loadViewerStatus();
         router.replace("/(viewer)/dashboard" as any);
         return;
       }
+      // Fall through to sign-in form — acceptInvite will handle the existing relationship gracefully.
     }
+
+    // Only block pending invitations on expiry
+    if (data.status !== "accepted" && new Date(data.expires_at) < new Date()) { setStep("invalid"); return; }
 
     if (session) {
       // Already signed in — go straight to accepting

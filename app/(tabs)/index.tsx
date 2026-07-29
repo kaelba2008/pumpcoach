@@ -266,7 +266,8 @@ export default function DashboardScreen() {
         .order("started_at", { ascending: false }),
       supabase
         .from("stash_entries")
-        .select("oz"),
+        .select("oz")
+        .eq("user_id", user.id),
       supabase
         .from("nursing_sessions")
         .select("*")
@@ -314,7 +315,8 @@ export default function DashboardScreen() {
         setWeeklyHydration(weekly);
       }
     }
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, viewingUserId]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -591,24 +593,6 @@ export default function DashboardScreen() {
             </Pressable>
           )}
 
-          {/* ── DELETED reminders banner — bell is now in hero ── */}
-          {false && (
-            <View style={{
-              backgroundColor: "#fff", borderRadius: 16, padding: 14,
-              flexDirection: "row", alignItems: "center", gap: 12,
-              borderWidth: 1, borderColor: COLORS.border,
-            }}>
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 14, fontFamily: "Nunito_700Bold", fontWeight: "700", color: COLORS.ink }}>
-                  Set pump reminders
-                </Text>
-                <Text style={{ fontSize: 12, color: COLORS.ink3, marginTop: 1 }}>
-                  Never miss a session — schedule your alarms
-                </Text>
-              </View>
-            </View>
-          )}
-
           {/* ── Coach card (premium) / teaser (free) ──── */}
           <View style={{ marginBottom: 16 }}>
             {isPremium ? (
@@ -730,7 +714,7 @@ export default function DashboardScreen() {
                     setHydrationGlasses(next);
                     const d = format(new Date(), "yyyy-MM-dd");
                     await supabase.from("daily_hydration").upsert(
-                      { user_id: profile!.id, date: d, glasses: next },
+                      { user_id: user?.id ?? "", date: d, glasses: next },
                       { onConflict: "user_id,date" }
                     );
                     setWeeklyHydration((prev) => { const a = [...prev]; a[6] = next; return a; });
@@ -745,7 +729,7 @@ export default function DashboardScreen() {
                     setHydrationGlasses(next);
                     const d = format(new Date(), "yyyy-MM-dd");
                     await supabase.from("daily_hydration").upsert(
-                      { user_id: profile!.id, date: d, glasses: next },
+                      { user_id: user?.id ?? "", date: d, glasses: next },
                       { onConflict: "user_id,date" }
                     );
                     setWeeklyHydration((prev) => { const a = [...prev]; a[6] = next; return a; });
@@ -792,7 +776,7 @@ export default function DashboardScreen() {
                           const doEdit   = () => { setEditingNursing(n); setNursingModal(true); };
                           const doDelete = () => Alert.alert("Delete session?", "This cannot be undone.", [
                             { text: "Cancel", style: "cancel" },
-                            { text: "Delete", style: "destructive", onPress: async () => { await supabase.from("nursing_sessions").delete().eq("id", n.id); loadData(); } },
+                            { text: "Delete", style: "destructive", onPress: async () => { await supabase.from("nursing_sessions").delete().eq("id", n.id).eq("user_id", user?.id ?? ""); loadData(); } },
                           ]);
                           if (Platform.OS === "ios") {
                             ActionSheetIOS.showActionSheetWithOptions(
@@ -872,7 +856,7 @@ export default function DashboardScreen() {
                 const doEdit   = () => { setEditingSession(s); setShowEditModal(true); };
                 const doDelete = () => Alert.alert("Delete session?", "This cannot be undone.", [
                   { text: "Cancel", style: "cancel" },
-                  { text: "Delete", style: "destructive", onPress: async () => { await supabase.from("pump_sessions").delete().eq("id", s.id); loadData(); } },
+                  { text: "Delete", style: "destructive", onPress: async () => { await supabase.from("pump_sessions").delete().eq("id", s.id).eq("user_id", user?.id ?? ""); loadData(); } },
                 ]);
 
                 return (

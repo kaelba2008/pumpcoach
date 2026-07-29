@@ -11,12 +11,9 @@ import { detectRedFlags } from "../../lib/redFlags";
 import { RedFlagBanner } from "../../components/ui/RedFlagBanner";
 import { LinearGradient } from "expo-linear-gradient";
 import { SESSION_QUICK_PROMPTS, COLORS, SERIF } from "../../lib/constants";
-import { COACH_SYSTEM_PROMPT } from "../../lib/playbook";
 import { AiMessage } from "../../types";
 import { fmtRelative } from "../../lib/formatters";
 import { ConsultRecommendation } from "../../components/ConsultRecommendation";
-
-const SYSTEM_PROMPT = COACH_SYSTEM_PROMPT;
 
 const CONSULT_TRIGGER_PHRASES = [
   "ibclc", "lactation consultant", "reach out", "professional support",
@@ -123,7 +120,7 @@ export default function CoachScreen() {
       lcContext,
     ].filter(Boolean);
 
-    return parts.length ? `\n\n[User context: ${parts.join(" | ")}]` : "";
+    return parts.join(" | ");
   }, [user, profile]);
 
   const sendMessage = async (text: string) => {
@@ -143,13 +140,12 @@ export default function CoachScreen() {
 
     try {
       const context = await buildContextNote();
-      const systemWithContext = SYSTEM_PROMPT + context;
 
-      // Call Supabase Edge Function (keeps API key server-side)
+      // Call Supabase Edge Function (system prompt lives server-side; we only send user context)
       const { data, error } = await supabase.functions.invoke("ai-coach", {
         body: {
           messages: newMessages.map((m) => ({ role: m.role, content: m.content })),
-          system:   systemWithContext,
+          context,
         },
       });
 

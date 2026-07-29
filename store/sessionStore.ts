@@ -24,7 +24,7 @@ export const useSessionStore = create<SessionState>()(
       startSession: (type = "pump") =>
         set({
           active: {
-            startedAt:       new Date(),
+            startedAt:       new Date().toISOString(),
             left_oz:         "",
             right_oz:        "",
             notes:           "",
