@@ -112,6 +112,10 @@ export default function ProfileScreen() {
   const [sharingInviteEmail, setSharingInviteEmail] = useState("");
   const [sharingBusy,     setSharingBusy]     = useState(false);
   const [showSharingModal, setShowSharingModal] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [newPassword,       setNewPassword]       = useState("");
+  const [confirmPassword,   setConfirmPassword]   = useState("");
+  const [changingPassword,  setChangingPassword]  = useState(false);
   const [userPumps,        setUserPumps]        = useState<UserPump[]>([]);
   const [showPumpsModal,   setShowPumpsModal]   = useState(false);
   const [newPumpName,      setNewPumpName]      = useState("");
@@ -1420,6 +1424,15 @@ export default function ProfileScreen() {
           <Text className="text-xs font-sans-bold text-ink-3 uppercase tracking-wider mb-2 px-1">Account</Text>
           <Card padding="none">
             <View className="px-4">
+              {user?.app_metadata?.provider === "email" && (
+                <>
+                  <SettingRow
+                    label="Change password"
+                    onPress={() => { setNewPassword(""); setConfirmPassword(""); setShowPasswordModal(true); }}
+                  />
+                  <Divider />
+                </>
+              )}
               <SettingRow
                 label="Sign out"
                 danger
@@ -1439,6 +1452,69 @@ export default function ProfileScreen() {
             </View>
           </Card>
         </View>
+
+        {/* Change password modal */}
+        <Modal visible={showPasswordModal} animationType="slide" presentationStyle="formSheet" onRequestClose={() => setShowPasswordModal(false)}>
+          <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.cream }}>
+            <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: COLORS.border }}>
+                <Pressable onPress={() => setShowPasswordModal(false)} hitSlop={12}>
+                  <Text style={{ fontSize: 15, color: COLORS.ink3, fontFamily: "Nunito_600SemiBold", fontWeight: "600" }}>Cancel</Text>
+                </Pressable>
+                <Text style={{ fontFamily: SERIF, fontSize: 18, color: COLORS.ink }}>Change Password</Text>
+                <View style={{ width: 48 }} />
+              </View>
+              <ScrollView contentContainerStyle={{ padding: 20, gap: 16 }} keyboardShouldPersistTaps="handled">
+                <View>
+                  <Text style={{ fontSize: 13, fontFamily: "Nunito_600SemiBold", fontWeight: "600", color: COLORS.ink2, marginBottom: 6 }}>New password</Text>
+                  <TextInput
+                    value={newPassword}
+                    onChangeText={setNewPassword}
+                    secureTextEntry
+                    autoCapitalize="none"
+                    placeholder="At least 8 characters"
+                    style={{ backgroundColor: "#fff", borderWidth: 1, borderColor: COLORS.border, borderRadius: 12, padding: 14, fontSize: 15, color: COLORS.ink }}
+                  />
+                </View>
+                <View>
+                  <Text style={{ fontSize: 13, fontFamily: "Nunito_600SemiBold", fontWeight: "600", color: COLORS.ink2, marginBottom: 6 }}>Confirm new password</Text>
+                  <TextInput
+                    value={confirmPassword}
+                    onChangeText={setConfirmPassword}
+                    secureTextEntry
+                    autoCapitalize="none"
+                    placeholder="Type it again"
+                    style={{ backgroundColor: "#fff", borderWidth: 1, borderColor: COLORS.border, borderRadius: 12, padding: 14, fontSize: 15, color: COLORS.ink }}
+                  />
+                </View>
+                <Button
+                  label={changingPassword ? "Saving…" : "Update password"}
+                  loading={changingPassword}
+                  fullWidth
+                  onPress={async () => {
+                    if (newPassword.length < 8) {
+                      Alert.alert("Too short", "Password must be at least 8 characters.");
+                      return;
+                    }
+                    if (newPassword !== confirmPassword) {
+                      Alert.alert("Passwords don't match", "Please make sure both fields match.");
+                      return;
+                    }
+                    setChangingPassword(true);
+                    const { error } = await supabase.auth.updateUser({ password: newPassword });
+                    setChangingPassword(false);
+                    if (error) {
+                      Alert.alert("Couldn't update password", error.message);
+                      return;
+                    }
+                    setShowPasswordModal(false);
+                    Alert.alert("Password updated", "Your new password is now active.");
+                  }}
+                />
+              </ScrollView>
+            </KeyboardAvoidingView>
+          </SafeAreaView>
+        </Modal>
 
         {/* About Pump Coach */}
         <View className="mb-4">
