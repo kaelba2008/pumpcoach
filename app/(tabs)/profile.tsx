@@ -264,8 +264,6 @@ export default function ProfileScreen() {
       return;
     }
 
-    const deepLink = `pumpcoach://viewer-invite?token=${data.token}`;
-    const webLink = `https://pumpcoach.app/invite?token=${data.token}`;
     const ownerName = profile?.display_name ?? "Someone";
     const babyName = profile?.baby_name;
     const appStoreUrl = "https://apps.apple.com/app/id6765497176";
@@ -279,9 +277,10 @@ export default function ProfileScreen() {
           <p style="margin-top: 24px;"><strong>Here's how to get started:</strong></p>
           <ol>
             <li>Download Pump Coach (free): <a href="${appStoreUrl}" style="color: #D4A574; text-decoration: none; font-weight: 500;">Download from App Store</a></li>
-            <li>Open the app and <a href="${deepLink}" style="color: #D4A574; text-decoration: none; font-weight: 500; border: 1px solid #D4A574; padding: 8px 12px; border-radius: 6px; display: inline-block;">Accept the invite</a></li>
+            <li>Open the app and tap <strong>"Enter invite code"</strong> at the bottom of the welcome screen</li>
+            <li>Copy and paste this invite code:</li>
           </ol>
-          <p>Or accept directly in your browser: <a href="${webLink}" style="color: #D4A574; text-decoration: none; font-weight: 500;">${webLink}</a></p>
+          <p style="background: #F5F0E8; border-radius: 8px; padding: 14px 16px; font-family: Menlo, Consolas, monospace; font-size: 13px; word-break: break-all;">${data.token}</p>
           <p>Once you accept, you'll have read-only access to her pumping sessions and data.</p>
           <p style="margin-top: 24px; color: #999; font-size: 14px;">— Pump Coach</p>
         </body>
@@ -298,11 +297,10 @@ export default function ProfileScreen() {
       `1. Download Pump Coach (free):`,
       `   ${appStoreUrl}`,
       ``,
-      `2. Open the app and tap this link to accept the invite:`,
-      `   ${deepLink}`,
+      `2. Open the app and tap "Enter invite code" at the bottom of the welcome screen.`,
       ``,
-      `Or accept in your browser:`,
-      `   ${webLink}`,
+      `3. Copy and paste this invite code:`,
+      `   ${data.token}`,
       ``,
       `Once you accept, you'll have read-only access to her pumping sessions and data.`,
       ``,

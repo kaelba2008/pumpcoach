@@ -9,7 +9,7 @@ import { useAuthStore } from "../store/authStore";
 import { COLORS, SERIF } from "../lib/constants";
 import { Button } from "../components/ui/Button";
 
-type Step = "loading" | "invalid" | "sign-in" | "sign-up" | "accepting" | "done";
+type Step = "loading" | "enter-token" | "invalid" | "sign-in" | "sign-up" | "accepting" | "done";
 
 export default function ViewerInviteScreen() {
   const { token } = useLocalSearchParams<{ token: string }>();
@@ -20,6 +20,7 @@ export default function ViewerInviteScreen() {
   const [ownerName,   setOwnerName]   = useState<string>("");
   const [inviteId,    setInviteId]    = useState<string>("");
   const [ownerId,     setOwnerId]     = useState<string>("");
+  const [manualToken, setManualToken] = useState("");
 
   const [email,       setEmail]       = useState("");
   const [password,    setPassword]    = useState("");
@@ -27,10 +28,11 @@ export default function ViewerInviteScreen() {
   const [busy,        setBusy]        = useState(false);
   const [authMode,    setAuthMode]    = useState<"sign-in" | "sign-up">("sign-in");
 
-  // Verify the token on mount
+  // Verify the token on mount; without one (opened from the welcome screen),
+  // let the viewer paste the code from their invite email.
   useEffect(() => {
-    if (!token) { setStep("invalid"); return; }
-    verifyToken();
+    if (!token) { setStep("enter-token"); return; }
+    verifyToken(token);
   }, [token]);
 
   // Once we have a session AND a valid invite, accept it
@@ -40,11 +42,12 @@ export default function ViewerInviteScreen() {
     }
   }, [session, step, inviteId]);
 
-  async function verifyToken() {
+  async function verifyToken(tokenValue: string) {
+    setStep("loading");
     const { data, error } = await supabase
       .from("invitations")
       .select("id, owner_id, status, expires_at, profiles!owner_id(display_name, baby_name)")
-      .eq("token", token)
+      .eq("token", tokenValue.trim())
       .maybeSingle();
 
     if (error || !data) { setStep("invalid"); return; }
@@ -179,16 +182,57 @@ export default function ViewerInviteScreen() {
       <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.cream, alignItems: "center", justifyContent: "center", padding: 32 }}>
         <Text style={{ fontSize: 40, marginBottom: 16 }}>🔗</Text>
         <Text style={{ fontFamily: SERIF, fontSize: 20, color: COLORS.ink, textAlign: "center", marginBottom: 8 }}>
-          This link isn't valid
+          That code isn't valid
         </Text>
         <Text style={{ fontSize: 14, color: COLORS.ink2, textAlign: "center", marginBottom: 32 }}>
-          It may have expired or already been used. Ask the person who shared it to send a new one.
+          It may have expired, already been used, or been mistyped. Try pasting it again, or ask the person who shared it to send a new invite.
         </Text>
-        <Pressable onPress={() => router.replace("/welcome")}>
+        <Button label="Try again" onPress={() => { setManualToken(""); setStep("enter-token"); }} />
+        <Pressable onPress={() => router.replace("/welcome")} style={{ marginTop: 20 }}>
           <Text style={{ fontSize: 14, fontFamily: "Nunito_600SemiBold", color: COLORS.primary }}>
             Go to Pump Coach →
           </Text>
         </Pressable>
+      </SafeAreaView>
+    );
+  }
+
+  if (step === "enter-token") {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.cream }}>
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
+          <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: "center", padding: 32 }} keyboardShouldPersistTaps="handled">
+            <Text style={{ fontSize: 40, marginBottom: 16, textAlign: "center" }}>💌</Text>
+            <Text style={{ fontFamily: SERIF, fontSize: 22, color: COLORS.ink, textAlign: "center", marginBottom: 8 }}>
+              Enter your invite code
+            </Text>
+            <Text style={{ fontSize: 14, color: COLORS.ink2, textAlign: "center", marginBottom: 24, lineHeight: 20 }}>
+              Paste the code from your invitation email to view someone's pumping data.
+            </Text>
+            <TextInput
+              value={manualToken}
+              onChangeText={setManualToken}
+              placeholder="Paste invite code here"
+              autoCapitalize="none"
+              autoCorrect={false}
+              style={{
+                backgroundColor: "#fff", borderWidth: 1, borderColor: COLORS.border,
+                borderRadius: 12, padding: 14, fontSize: 14, color: COLORS.ink, marginBottom: 16,
+              }}
+            />
+            <Button
+              label="Continue"
+              fullWidth
+              disabled={manualToken.trim().length < 8}
+              onPress={() => verifyToken(manualToken)}
+            />
+            <Pressable onPress={() => router.replace("/welcome")} style={{ marginTop: 20 }}>
+              <Text style={{ fontSize: 14, fontFamily: "Nunito_600SemiBold", color: COLORS.primary, textAlign: "center" }}>
+                ← Back
+              </Text>
+            </Pressable>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </SafeAreaView>
     );
   }
