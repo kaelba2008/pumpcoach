@@ -140,9 +140,10 @@ function EntryCard({
     <Pressable
       onPress={showActions}
       style={({ pressed }) => ({
-        flexDirection: "row", alignItems: "flex-start",
-        paddingVertical: 16, paddingHorizontal: 20,
-        backgroundColor: pressed ? COLORS.muted : "transparent",
+        flexDirection: "row", alignItems: "center",
+        backgroundColor: pressed ? COLORS.muted : "#fff",
+        borderRadius: 16, padding: 16, marginBottom: 12,
+        borderWidth: 1, borderColor: COLORS.border,
         opacity: expired ? 0.55 : 1,
         gap: 12,
       })}
@@ -1523,13 +1524,13 @@ export default function StashScreen() {
                   onPress={() => setShowGoal(true)}
                   style={({ pressed }) => ({
                     flexDirection: "row", alignItems: "center", justifyContent: "center",
-                    gap: 8, paddingVertical: 12, paddingHorizontal: 16, borderRadius: 12,
-                    borderWidth: 1, borderColor: COLORS.primary,
-                    backgroundColor: pressed ? COLORS.primary + "15" : "#fff",
+                    gap: 6, paddingVertical: 14, borderRadius: 14,
+                    backgroundColor: pressed ? "#3A4B4D" : COLORS.primary,
+                    shadowColor: COLORS.primary, shadowOpacity: 0.25, shadowRadius: 8, elevation: 3,
                   })}
                 >
-                  <Text style={{ fontSize: 18, color: COLORS.primary, fontWeight: "600" }}>+</Text>
-                  <Text style={{ fontSize: 14, fontFamily: "Nunito_600SemiBold", fontWeight: "600", color: COLORS.primary }}>
+                  <Text style={{ fontSize: 16, color: "#fff", fontFamily: "Nunito_700Bold", fontWeight: "700" }}>＋</Text>
+                  <Text style={{ fontSize: 14, fontFamily: "Nunito_700Bold", fontWeight: "700", color: "#fff" }}>
                     Add another goal
                   </Text>
                 </Pressable>
@@ -1603,18 +1604,16 @@ export default function StashScreen() {
             <Text style={{ fontSize: 12, fontFamily: "Nunito_700Bold", fontWeight: "700", color: COLORS.ink3, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>
               Oldest first
             </Text>
-            <View style={{ backgroundColor: "#fff", borderRadius: 20, overflow: "hidden", borderWidth: 1, borderColor: COLORS.border }}>
-              {entries.map((entry, idx) => (
-                <React.Fragment key={entry.id}>
-                  {idx > 0 && <View style={{ height: 1, backgroundColor: COLORS.border, marginLeft: 38 }} />}
-                  <EntryCard
-                    entry={entry}
-                    onEdit={() => setEditEntry(entry)}
-                    onUsed={() => markUsed(entry.id)}
-                    onDiscard={() => discardEntry(entry.id)}
-                    onDelete={() => deleteEntry(entry.id)}
-                  />
-                </React.Fragment>
+            <View>
+              {entries.map((entry) => (
+                <EntryCard
+                  key={entry.id}
+                  entry={entry}
+                  onEdit={() => setEditEntry(entry)}
+                  onUsed={() => markUsed(entry.id)}
+                  onDiscard={() => discardEntry(entry.id)}
+                  onDelete={() => deleteEntry(entry.id)}
+                />
               ))}
             </View>
           </>
