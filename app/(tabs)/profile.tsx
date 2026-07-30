@@ -277,7 +277,7 @@ export default function ProfileScreen() {
           <p style="margin-top: 24px;"><strong>Here's how to get started:</strong></p>
           <ol>
             <li>Download Pump Coach (free): <a href="${appStoreUrl}" style="color: #D4A574; text-decoration: none; font-weight: 500;">Download from App Store</a></li>
-            <li>Open the app and tap <strong>"Enter invite code"</strong> at the bottom of the welcome screen</li>
+            <li>Open the app and tap <strong>"Enter invite code"</strong> &mdash; it's at the bottom of the welcome screen, or if you already have an account, on the <strong>Profile</strong> tab under "Received an Invite?"</li>
             <li>Copy and paste this invite code:</li>
           </ol>
           <p style="background: #F5F0E8; border-radius: 8px; padding: 14px 16px; font-family: Menlo, Consolas, monospace; font-size: 13px; word-break: break-all;">${data.token}</p>
@@ -297,7 +297,7 @@ export default function ProfileScreen() {
       `1. Download Pump Coach (free):`,
       `   ${appStoreUrl}`,
       ``,
-      `2. Open the app and tap "Enter invite code" at the bottom of the welcome screen.`,
+      `2. Open the app and tap "Enter invite code" — it's at the bottom of the welcome screen, or if you already have an account, on the Profile tab under "Received an Invite?".`,
       ``,
       `3. Copy and paste this invite code:`,
       `   ${data.token}`,
