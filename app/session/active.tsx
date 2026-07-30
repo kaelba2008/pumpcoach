@@ -14,7 +14,7 @@ import { OzInput } from "../../components/ui/OzInput";
 import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
 import { PainLevelPicker } from "../../components/ui/PainLevelPicker";
-import { PhaseSettings } from "../../components/ui/PhaseSettings";
+import { PhaseSettings } from "../../components/PhaseSettings";
 import { SessionInsightSheet } from "../../components/SessionInsightSheet";
 import { fmtMs } from "../../lib/formatters";
 import { LETDOWN_OPTIONS, COLORS, SERIF } from "../../lib/constants";
@@ -76,6 +76,12 @@ export default function ActiveSessionScreen() {
   const [suctionLevel,         setSuctionLevel]         = useState<number | null>(null);
   const [cycleSpeed,           setCycleSpeed]           = useState<number | null>(null);
   const [pumpMode,             setPumpMode]             = useState<import("../../types").PumpMode | null>(null);
+  const [massageDuration,       setMassageDuration]       = useState("");
+  const [massageSuction,        setMassageSuction]        = useState<number | null>(null);
+  const [massageCycle,          setMassageCycle]          = useState<number | null>(null);
+  const [expressionDuration,    setExpressionDuration]    = useState("");
+  const [expressionSuction,     setExpressionSuction]     = useState<number | null>(null);
+  const [expressionCycle,       setExpressionCycle]       = useState<number | null>(null);
   const tickRef   = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Load log-by-total preference
@@ -683,6 +689,28 @@ export default function ActiveSessionScreen() {
                 </View>
               </View>
             )}
+          </View>
+
+          {/* Phase Settings — Massage and Expression */}
+          <View className="px-6 mb-4 gap-4">
+            <PhaseSettings
+              phase="massage"
+              duration={massageDuration}
+              suctionLevel={massageSuction}
+              cycleSpeed={massageCycle}
+              onDurationChange={setMassageDuration}
+              onSuctionChange={setMassageSuction}
+              onCycleSpeedChange={setMassageCycle}
+            />
+            <PhaseSettings
+              phase="expression"
+              duration={expressionDuration}
+              suctionLevel={expressionSuction}
+              cycleSpeed={expressionCycle}
+              onDurationChange={setExpressionDuration}
+              onSuctionChange={setExpressionSuction}
+              onCycleSpeedChange={setExpressionCycle}
+            />
           </View>
 
           {/* Pumped after nursing toggle */}
