@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { View, Text, Pressable, ActionSheetIOS, TextInput, Modal, ScrollView, Alert } from "react-native";
+import { useFocusEffect } from "expo-router";
 import { COLORS, SERIF } from "../lib/constants";
 import { useViewerAccess } from "../hooks/useViewerAccess";
 
@@ -9,7 +10,11 @@ interface ViewerSwitcherProps {
 }
 
 export function ViewerSwitcher({ currentViewingUserId, onViewUserChange }: ViewerSwitcherProps) {
-  const { people, loading, saveNote } = useViewerAccess();
+  const { people, loading, saveNote, refetch } = useViewerAccess();
+
+  useFocusEffect(() => {
+    refetch();
+  });
   const [showNoteModal, setShowNoteModal] = useState(false);
   const [editingNote, setEditingNote] = useState("");
 
