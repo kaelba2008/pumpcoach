@@ -98,35 +98,31 @@ export default function WelcomeScreen() {
 
         {/* CTAs */}
         <View style={{ gap: 12, marginBottom: 24 }}>
-          <Pressable
-            onPress={() => router.push("/(auth)/sign-up")}
-            style={({ pressed }) => ({
+          <Pressable onPress={() => router.push("/(auth)/sign-up")}>
+            <View style={{
               backgroundColor: COLORS.primary,
               borderRadius: 16, paddingVertical: 17,
               alignItems: "center",
-              opacity: pressed ? 0.88 : 1,
               shadowColor: COLORS.primary, shadowOpacity: 0.3,
               shadowRadius: 12, elevation: 4,
-            })}
-          >
-            <Text style={{ color: "#fff", fontSize: 15, fontFamily: "Nunito_700Bold", fontWeight: "700", letterSpacing: 0.3 }}>
-              Get started, it's free
-            </Text>
+            }}>
+              <Text style={{ color: "#fff", fontSize: 15, fontFamily: "Nunito_700Bold", fontWeight: "700", letterSpacing: 0.3 }}>
+                Get started, it's free
+              </Text>
+            </View>
           </Pressable>
 
-          <Pressable
-            onPress={() => router.push("/(auth)/sign-in")}
-            style={({ pressed }) => ({
+          <Pressable onPress={() => router.push("/(auth)/sign-in")}>
+            <View style={{
               borderRadius: 16, paddingVertical: 16,
               alignItems: "center", borderWidth: 1.5,
               borderColor: COLORS.border,
-              opacity: pressed ? 0.7 : 1,
               backgroundColor: "#fff",
-            })}
-          >
-            <Text style={{ color: COLORS.ink, fontSize: 15, fontFamily: "Nunito_600SemiBold", fontWeight: "600" }}>
-              Sign in
-            </Text>
+            }}>
+              <Text style={{ color: COLORS.ink, fontSize: 15, fontFamily: "Nunito_600SemiBold", fontWeight: "600" }}>
+                Sign in
+              </Text>
+            </View>
           </Pressable>
         </View>
 
