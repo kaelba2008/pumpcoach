@@ -19,9 +19,6 @@ import { PremiumTeaser } from "../../components/ui/PremiumTeaser";
 import { NursingEntryModal } from "../../components/NursingEntryModal";
 import { SessionAnalysis } from "../../components/SessionAnalysis";
 import { DetailedAnalytics } from "../../components/DetailedAnalytics";
-import { ViewerSwitcher } from "../../components/ViewerSwitcher";
-import { ViewerDataDisplay } from "../../components/ViewerDataDisplay";
-import { useViewerAccess } from "../../hooks/useViewerAccess";
 import { fmtOz, babyAgeLabel } from "../../lib/formatters";
 import { useUnit } from "../../hooks/useUnit";
 import { formatUnit, ozToMl, mlToOz } from "../../lib/units";
@@ -208,7 +205,6 @@ export default function DashboardScreen() {
   const { user, profile, isPremium, trialEndsAt } = useAuthStore();
   const { active }     = useSessionStore();
   const { unit }       = useUnit();
-  const { people, refetch: refetchViewerAccess } = useViewerAccess();
 
   const [sessions,           setSessions]           = useState<PumpSession[]>([]);
   const [stashOz,            setStashOz]            = useState<number>(0);
@@ -231,9 +227,6 @@ export default function DashboardScreen() {
   // Analytics modal
   const [showDetailedAnalytics, setShowDetailedAnalytics] = useState(false);
 
-  // Viewer switcher for IBCLCs/partners viewing others' data
-  const [viewingUserId, setViewingUserId] = useState<string | null>(null);
-
   const showNursingLog = shouldShowNursingLog(profile?.pumping_context, nursingOverride);
 
   // Load AsyncStorage preferences once
@@ -250,12 +243,8 @@ export default function DashboardScreen() {
     const todayISO  = startOfDay(new Date()).toISOString();
     const todayDate = format(new Date(), "yyyy-MM-dd");
 
-    // Refetch viewer access in case user was just invited
-    refetchViewerAccess();
-
-    // If viewing someone else's data, fetch their sessions (all historical, not just 7d)
-    const sessionQueryUserId = viewingUserId || user.id;
-    const sessionSinceDate = viewingUserId ? subDays(new Date(), 90).toISOString() : since; // 90 days for viewers
+    const sessionQueryUserId = user.id;
+    const sessionSinceDate = since;
 
     const [sessionRes, stashRes, nursingRes, lifetimeRes] = await Promise.all([
       supabase
@@ -316,12 +305,9 @@ export default function DashboardScreen() {
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, viewingUserId]);
+  }, [user?.id]);
 
   useEffect(() => { loadData(); }, [loadData]);
-
-  // Refresh whenever viewing user changes
-  useEffect(() => { loadData(); }, [viewingUserId, loadData]);
 
   // Refresh whenever the tab/screen comes back into focus (e.g. after saving a session)
   useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
@@ -460,23 +446,7 @@ export default function DashboardScreen() {
         </LinearGradient>
         </View>
 
-        {/* Viewer Switcher (for IBCLCs/partners viewing others' data) */}
-        <ViewerSwitcher currentViewingUserId={viewingUserId} onViewUserChange={setViewingUserId} />
-
-        {/* Show viewer data display when viewing someone else's data */}
-        {viewingUserId && (() => {
-          const person = people.find(p => p.id === viewingUserId);
-          return (
-            <ViewerDataDisplay
-              sessions={sessions}
-              personInitials={person?.initials ?? "?"}
-              unit={unit}
-            />
-          );
-        })()}
-
-        {/* Normal home screen content (hidden when viewing someone else) */}
-        {!viewingUserId && <View style={{ paddingHorizontal: 20, marginTop: -16 }}>
+        <View style={{ paddingHorizontal: 20, marginTop: -16 }}>
 
           {/* ── Session CTAs ────────────────────────────── */}
           <View style={{ marginBottom: 16 }}>
@@ -946,37 +916,7 @@ export default function DashboardScreen() {
             </View>
           </Pressable>
 
-          {/* ── Viewer Notes (when viewing someone's data) ── */}
-          {viewingUserId && (
-            <View style={{ marginTop: 24, paddingBottom: 20 }}>
-              <Text style={{ fontSize: 12, fontFamily: "Nunito_700Bold", fontWeight: "700", color: COLORS.ink3, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>
-                Notes
-              </Text>
-              <Pressable
-                onPress={() => {
-                  // Open note editor
-                  const person = { people: [] }; // This would come from ViewerSwitcher
-                  // For now, show alert to edit notes
-                  Alert.alert("Notes", "Tap the 'Edit notes' button above to add or edit notes");
-                }}
-                style={{
-                  backgroundColor: "#fff",
-                  borderRadius: 12,
-                  padding: 12,
-                  borderWidth: 1,
-                  borderColor: COLORS.border,
-                  minHeight: 80,
-                }}
-              >
-                <Text style={{ fontSize: 13, color: COLORS.ink2, lineHeight: 18 }}>
-                  Use the "Edit notes" button at the top to add your observations and feedback about this person's data.
-                </Text>
-              </Pressable>
-            </View>
-          )}
-
         </View>
-        }
       </ScrollView>
 
       <NursingEntryModal

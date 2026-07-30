@@ -26,6 +26,7 @@ import { babyAgeLabel } from "../../lib/formatters";
 import { COLORS, SERIF, PRIVACY_POLICY_URL, TERMS_OF_SERVICE_URL } from "../../lib/constants";
 import { PumpingContext, Invitation, ViewerAccount, UserPump } from "../../types";
 import { useUnit } from "../../hooks/useUnit";
+import { useViewerAccess } from "../../hooks/useViewerAccess";
 import { UnitPref } from "../../lib/units";
 
 const PUMP_BRANDS = ["Spectra", "Medela", "Elvie", "Willow", "Baby Buddha", "Haakaa", "Momcozy", "Lansinoh", "Other"];
@@ -85,6 +86,7 @@ function titleCase(str: string) {
 export default function ProfileScreen() {
   const router = useRouter();
   const { user, profile, signOut, isPremium, loadProfile, knownOwnerId, setViewingMode } = useAuthStore();
+  const { people: clientsIView } = useViewerAccess();
   const { unit, changeUnit } = useUnit();
   const SKIP_GAP_ALERTS_KEY = "skip_gap_alerts_pref";
 
@@ -1160,34 +1162,54 @@ export default function ProfileScreen() {
           </Card>
         </View>
 
-        {/* Return to viewer mode (only visible if user is also a viewer of someone else's data) */}
-        {!!knownOwnerId && (
+        {/* My Clients — people who shared their data with me (IBCLCs, partners) */}
+        {clientsIView.length > 0 && (
           <View className="mb-4">
-            <Text className="text-xs font-sans-bold text-ink-3 uppercase tracking-wider mb-2 px-1">Shared Data Access</Text>
+            <Text className="text-xs font-sans-bold text-ink-3 uppercase tracking-wider mb-2 px-1">My Clients</Text>
             <Card padding="md">
               <Text style={{ fontSize: 13, color: COLORS.ink2, lineHeight: 20, marginBottom: 14 }}>
-                You have access to view someone else's Pump Coach data.
+                People who shared their pumping data with you. Tap to open their dashboard.
               </Text>
-              <Pressable
-                onPress={async () => {
-                  await AsyncStorage.setItem("viewer_mode_pref", "viewer");
-                  setViewingMode(knownOwnerId);
-                  router.replace("/(viewer)/dashboard" as any);
-                }}
-                style={{
-                  backgroundColor: COLORS.primaryMist,
-                  borderRadius: 12,
-                  paddingVertical: 10,
-                  paddingHorizontal: 20,
-                  alignSelf: "flex-start",
-                  borderWidth: 1,
-                  borderColor: COLORS.primary,
-                }}
-              >
-                <Text style={{ fontSize: 13, fontFamily: "Nunito_700Bold", fontWeight: "700", color: COLORS.primary }}>
-                  Switch to Viewer Dashboard
-                </Text>
-              </Pressable>
+              {clientsIView.map((person, i) => (
+                <Pressable
+                  key={person.id}
+                  onPress={async () => {
+                    await AsyncStorage.setItem("viewer_mode_pref", "viewer");
+                    setViewingMode(person.id);
+                    router.replace("/(viewer)/dashboard" as any);
+                  }}
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 12,
+                    paddingVertical: 12,
+                    borderTopWidth: i > 0 ? 1 : 0,
+                    borderTopColor: COLORS.border,
+                  }}
+                >
+                  <View style={{
+                    width: 40, height: 40, borderRadius: 20,
+                    backgroundColor: COLORS.primaryMist,
+                    alignItems: "center", justifyContent: "center",
+                    borderWidth: 1, borderColor: COLORS.primary,
+                  }}>
+                    <Text style={{ fontSize: 14, fontFamily: "Nunito_700Bold", fontWeight: "700", color: COLORS.primary }}>
+                      {person.initials}
+                    </Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 14, fontFamily: "Nunito_700Bold", fontWeight: "700", color: COLORS.ink }}>
+                      Client {person.initials}
+                    </Text>
+                    {person.note && (
+                      <Text style={{ fontSize: 12, color: COLORS.ink3 }} numberOfLines={1}>
+                        {person.note.note_content}
+                      </Text>
+                    )}
+                  </View>
+                  <Text style={{ fontSize: 16, color: COLORS.ink3 }}>›</Text>
+                </Pressable>
+              ))}
             </Card>
           </View>
         )}

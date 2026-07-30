@@ -62,7 +62,7 @@ export function useViewerAccess() {
         id: p.id,
         display_name: p.display_name,
         email: p.email,
-        initials: getInitials(p.display_name),
+        initials: getInitials(p.display_name, p.email),
         note: notesByUserId.get(p.id) || null,
       }));
 
@@ -105,11 +105,13 @@ export function useViewerAccess() {
   return { people, loading, saveNote, refetch: fetchPeople };
 }
 
-function getInitials(name: string | null | undefined): string {
-  if (!name) return "?";
-  const parts = name.trim().split(/\s+/);
-  if (parts.length === 1) {
-    return parts[0].substring(0, 1).toUpperCase();
+function getInitials(name: string | null | undefined, email?: string | null): string {
+  if (name && name.trim()) {
+    const parts = name.trim().split(/\s+/);
+    if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
   }
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  // No display name — fall back to the first two letters of their email
+  if (email && email.trim()) return email.trim().substring(0, 2).toUpperCase();
+  return "?";
 }
