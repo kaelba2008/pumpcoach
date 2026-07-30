@@ -235,6 +235,11 @@ export function ViewerDataDisplay({ sessions, personInitials, unit }: ViewerData
                     <Text style={{ fontSize: 11, color: COLORS.ink3 }}>
                       {Math.round((s.duration_sec ?? 0) / 60)} min · {s.pump_mode || "—"} mode
                     </Text>
+                    {s.notes ? (
+                      <Text style={{ fontSize: 12, color: COLORS.ink2, marginTop: 4 }} numberOfLines={2}>
+                        {s.notes}
+                      </Text>
+                    ) : null}
                   </View>
                 </View>
               ))}

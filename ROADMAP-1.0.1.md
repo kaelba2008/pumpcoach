@@ -22,6 +22,11 @@ Collected from tester + user feedback during the 1.0 launch push (July 30, 2026)
       numbers.
 - [ ] **Weaning mode** — guided session-dropping plan; big feature, needs
       IBCLC-driven spec from Katie.
+- [ ] **Simple mode toggle** — a tester stopped tracking entirely because
+      the numbers/analytics were causing anxiety. Add a Profile setting
+      that hides Session Insights, quality score, and trend/efficiency
+      stats everywhere they appear (home, session detail, Coach tab),
+      leaving just the core log: time, output, notes.
 
 ## Cleanups deferred from 1.0
 
