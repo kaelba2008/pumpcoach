@@ -1216,6 +1216,32 @@ export default function ProfileScreen() {
           </View>
         )}
 
+        {/* Enter invite code — for viewers who received an invite while already signed in */}
+        <View className="mb-4">
+          <Text className="text-xs font-sans-bold text-ink-3 uppercase tracking-wider mb-2 px-1">Received an Invite?</Text>
+          <Card padding="md">
+            <Text style={{ fontSize: 13, color: COLORS.ink2, lineHeight: 20, marginBottom: 14 }}>
+              If someone shared their pumping data with you, enter the code from your invitation email here.
+            </Text>
+            <Pressable
+              onPress={() => router.push("/viewer-invite" as any)}
+              style={{
+                backgroundColor: COLORS.primaryMist,
+                borderRadius: 12,
+                paddingVertical: 10,
+                paddingHorizontal: 20,
+                alignSelf: "flex-start",
+                borderWidth: 1,
+                borderColor: COLORS.primary,
+              }}
+            >
+              <Text style={{ fontSize: 13, fontFamily: "Nunito_700Bold", fontWeight: "700", color: COLORS.primary }}>
+                Enter invite code
+              </Text>
+            </Pressable>
+          </Card>
+        </View>
+
         {/* Share data */}
         <View className="mb-4">
           <Text className="text-xs font-sans-bold text-ink-3 uppercase tracking-wider mb-2 px-1">Share My Data</Text>
