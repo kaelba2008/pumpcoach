@@ -65,34 +65,33 @@ export function GoogleSignInButton({
   disabled = false,
 }: GoogleSignInButtonProps) {
   return (
-    <Pressable
-      onPress={onPress}
-      disabled={disabled}
-      style={({ pressed }) => ({
-        flexDirection:   "row",
-        alignItems:      "center",
-        justifyContent:  "center",
-        gap:             10,
-        height:          50,
-        borderRadius:    14,
-        borderWidth:     1.5,
-        borderColor:     COLORS.border,
-        backgroundColor: pressed ? "#F2F2F2" : "#FFFFFF",
-        opacity:         disabled ? 0.55 : 1,
-      })}
-    >
-      <GoogleLogo size={20} />
-      <Text
+    <Pressable onPress={onPress} disabled={disabled} style={{ opacity: disabled ? 0.55 : 1 }}>
+      <View
         style={{
-          fontSize:    15,
-          fontFamily:  "Nunito_600SemiBold",
-          fontWeight:  "600",
-          color:       "#3C4043",
-          letterSpacing: 0.1,
+          flexDirection:   "row",
+          alignItems:      "center",
+          justifyContent:  "center",
+          gap:             10,
+          height:          50,
+          borderRadius:    14,
+          borderWidth:     1.5,
+          borderColor:     COLORS.border,
+          backgroundColor: "#FFFFFF",
         }}
       >
-        {label}
-      </Text>
+        <GoogleLogo size={20} />
+        <Text
+          style={{
+            fontSize:    15,
+            fontFamily:  "Nunito_600SemiBold",
+            fontWeight:  "600",
+            color:       "#3C4043",
+            letterSpacing: 0.1,
+          }}
+        >
+          {label}
+        </Text>
+      </View>
     </Pressable>
   );
 }

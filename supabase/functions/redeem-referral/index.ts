@@ -18,7 +18,12 @@ function json(body: unknown, status = 200) {
   });
 }
 
-async function grantPromoWeek(rcUserId: string): Promise<void> {
+async function grantPromoDays(rcUserId: string, days: number): Promise<void> {
+  // Use an explicit end_time_ms rather than the "duration" enum so each code
+  // can grant an exact number of days (e.g. 14, 60) instead of only the
+  // fixed weekly/monthly/etc. buckets. Note: repeated grants REPLACE the
+  // expiration rather than stacking it, per RevenueCat's API.
+  const endTimeMs = Date.now() + days * 24 * 60 * 60 * 1000;
   const res = await fetch(
     `https://api.revenuecat.com/v1/subscribers/${encodeURIComponent(rcUserId)}/entitlements/${RC_ENTITLEMENT}/promotional`,
     {
@@ -28,7 +33,7 @@ async function grantPromoWeek(rcUserId: string): Promise<void> {
         "Content-Type":   "application/json",
         "X-Platform":     "ios",
       },
-      body: JSON.stringify({ duration: "weekly" }),
+      body: JSON.stringify({ end_time_ms: endTimeMs }),
     }
   );
   if (!res.ok) {
@@ -63,7 +68,7 @@ serve(async (req) => {
     // Look up the referral code
     const { data: codeRow, error: codeErr } = await admin
       .from("referral_codes")
-      .select("id, user_id")
+      .select("id, user_id, reward_days")
       .eq("code", code.trim().toUpperCase())
       .single();
 
@@ -86,12 +91,13 @@ serve(async (req) => {
 
     if (insertErr) return json({ error: "Failed to record referral" }, 500);
 
-    // Grant 7 days premium to both users — don't fail the whole request if RC is down
+    // Grant premium to both users — don't fail the whole request if RC is down
     const referrerId = codeRow.user_id as string;
+    const rewardDays = (codeRow.reward_days as number) ?? 7;
     const errors: string[] = [];
 
-    await grantPromoWeek(newUserId).catch((e) => errors.push(e.message));
-    await grantPromoWeek(referrerId).catch((e) => errors.push(e.message));
+    await grantPromoDays(newUserId, rewardDays).catch((e) => errors.push(e.message));
+    await grantPromoDays(referrerId, rewardDays).catch((e) => errors.push(e.message));
 
     // Mark rewarded_at
     await admin
