@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import { View, Text, Pressable, ActionSheetIOS, TextInput, Modal, ScrollView, Alert } from "react-native";
 import { useFocusEffect } from "expo-router";
 import { COLORS, SERIF } from "../lib/constants";
@@ -10,15 +10,19 @@ interface ViewerSwitcherProps {
 }
 
 export function ViewerSwitcher({ currentViewingUserId, onViewUserChange }: ViewerSwitcherProps) {
-  const { people, loading, saveNote, refetch } = useViewerAccess();
+  const { people, saveNote, refetch } = useViewerAccess();
 
-  useFocusEffect(() => {
-    refetch();
-  });
+  useFocusEffect(
+    useCallback(() => {
+      refetch();
+    }, [refetch])
+  );
   const [showNoteModal, setShowNoteModal] = useState(false);
   const [editingNote, setEditingNote] = useState("");
 
-  if (loading || people.length === 0) return null;
+  // Keep showing the (possibly stale) list while a refetch is in flight —
+  // hiding during loading makes the button flicker/vanish on every focus.
+  if (people.length === 0) return null;
 
   const currentPerson = people.find((p) => p.id === currentViewingUserId);
   const isViewingOther = currentViewingUserId !== null;

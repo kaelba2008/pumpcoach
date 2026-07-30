@@ -149,33 +149,33 @@ function EntryCard({
       accessibilityRole="button"
       accessibilityLabel="Stash entry options"
     >
-      {/* Left: expiry dot */}
-      <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: EXPIRY_COLOR[tier], marginTop: 4, flexShrink: 0 }} />
-
-      {/* Center: oz + meta */}
+      {/* Oz + meta, expiry dot inline with the oz line */}
       <View style={{ flex: 1 }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 6 }}>
+          <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: EXPIRY_COLOR[tier] }} />
           <Text style={{ fontSize: 17, fontFamily: "Nunito_700Bold", fontWeight: "700", color: COLORS.ink }}>
             {fmtOz(entry.oz)}
           </Text>
           {entry.label ? (
-            <Text style={{ fontSize: 12, color: COLORS.ink2, fontStyle: "italic" }}>{entry.label}</Text>
+            <Text style={{ fontSize: 12, color: COLORS.ink2, fontStyle: "italic" }} numberOfLines={1}>{entry.label}</Text>
           ) : null}
         </View>
-        <Text style={{ fontSize: 12, color: COLORS.ink3, lineHeight: 16 }}>
+        <Text style={{ fontSize: 12, color: COLORS.ink3, lineHeight: 16, marginLeft: 18 }}>
           {loc?.emoji} {loc?.label} · {fmtDate(entry.expressed_at)}
         </Text>
-        <Text style={{ fontSize: 12, color: COLORS.ink3, marginTop: 2 }}>
+        <Text style={{ fontSize: 12, fontFamily: "Nunito_600SemiBold", fontWeight: "600", color: EXPIRY_COLOR[tier], marginTop: 3, marginLeft: 18 }}>
           {tier === "expired"
             ? "Expired"
             : tier === "expires_today"
             ? `Expires in ${hours}h`
+            : tier === "use_soon"
+            ? `Use soon · good until ${format(exp, "MMM d")}`
             : `Good until ${format(exp, "MMM d")}`}
         </Text>
       </View>
 
-      {/* Right: chevron */}
-      <Text style={{ fontSize: 16, color: COLORS.ink3, marginTop: 2 }}>›</Text>
+      {/* Right: chevron, vertically centered */}
+      <Text style={{ fontSize: 16, color: COLORS.ink3, alignSelf: "center" }}>›</Text>
     </Pressable>
   );
 }
