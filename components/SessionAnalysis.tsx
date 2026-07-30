@@ -18,18 +18,13 @@ export function SessionAnalysis({ sessions, unit }: SessionAnalysisProps) {
     const totalMinutes = sessions.reduce((sum, s) => sum + ((s.duration_sec ?? 0) / 60), 0);
     const efficiency = totalMinutes > 0 ? totalOz / totalMinutes : 0;
 
-    // Oz per hour (only if no gaps >3 hours between sessions)
-    const sortedByTime = [...sessions].sort((a, b) => new Date(a.started_at).getTime() - new Date(b.started_at).getTime());
-    let hasLargeGap = false;
-    for (let i = 0; i < sortedByTime.length - 1; i++) {
-      const gap = (new Date(sortedByTime[i + 1].started_at).getTime() - new Date(sortedByTime[i].started_at).getTime()) / (1000 * 60 * 60);
-      if (gap > 3) {
-        hasLargeGap = true;
-        break;
-      }
-    }
-    const totalHours = totalMinutes / 60;
-    const ozPerHour = !hasLargeGap && totalHours > 0 ? totalOz / totalHours : null;
+    // Output per hour: production rate over the last 24h (matches the
+    // "typical ~1 oz/hr" guideline, which is daily output ÷ 24).
+    const dayAgoMs = Date.now() - 24 * 60 * 60 * 1000;
+    const last24Oz = sessions
+      .filter((s) => new Date(s.started_at).getTime() >= dayAgoMs)
+      .reduce((sum, s) => sum + (s.total_oz ?? 0), 0);
+    const ozPerHour = last24Oz > 0 ? last24Oz / 24 : null;
 
     // Session quality score (0-100)
     const avgOz = totalOz / sessions.length;
