@@ -1520,20 +1520,11 @@ export default function StashScreen() {
                     onEdit={() => setEditGoal(g)}
                   />
                 ))}
-                <Pressable
+                <Button
+                  label="+ Add another goal"
                   onPress={() => setShowGoal(true)}
-                  style={({ pressed }) => ({
-                    flexDirection: "row", alignItems: "center", justifyContent: "center",
-                    gap: 6, paddingVertical: 14, borderRadius: 14,
-                    backgroundColor: pressed ? "#3A4B4D" : COLORS.primary,
-                    shadowColor: COLORS.primary, shadowOpacity: 0.25, shadowRadius: 8, elevation: 3,
-                  })}
-                >
-                  <Text style={{ fontSize: 16, color: "#fff", fontFamily: "Nunito_700Bold", fontWeight: "700" }}>＋</Text>
-                  <Text style={{ fontSize: 14, fontFamily: "Nunito_700Bold", fontWeight: "700", color: "#fff" }}>
-                    Add another goal
-                  </Text>
-                </Pressable>
+                  fullWidth
+                />
               </>
             ) : (
               <Pressable
