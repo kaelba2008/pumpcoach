@@ -68,6 +68,7 @@ export function ViewerDataDisplay({ sessions, personInitials, unit }: ViewerData
 
     const sparkData: number[] = [];
     const sparkLabels: string[] = [];
+    const sparkDates: string[] = [];   // "yyyy-MM-dd", parallel to sparkData
     const dayTotals: Map<string, number> = new Map();
 
     dailyData.forEach((d) => {
@@ -79,6 +80,7 @@ export function ViewerDataDisplay({ sessions, personInitials, unit }: ViewerData
       const dateStr = format(day, "yyyy-MM-dd");
       sparkData.push(dayTotals.get(dateStr) ?? 0);
       sparkLabels.push(format(day, "M/d"));
+      sparkDates.push(dateStr);
     }
 
     return {
@@ -88,6 +90,7 @@ export function ViewerDataDisplay({ sessions, personInitials, unit }: ViewerData
       avgPerDay: Math.round(avgPerDay * 100) / 100,
       sparkData,
       sparkLabels,
+      sparkDates,
       dayTotals,
     };
   }, [sessions]);
@@ -103,9 +106,9 @@ export function ViewerDataDisplay({ sessions, personInitials, unit }: ViewerData
   const maxDaily = Math.max(...analysis.sparkData, 1);
 
   const handleDayPress = (index: number) => {
-    const dateStr = analysis.sparkLabels[index];
-    const dateObj = new Date(dateStr);
-    const fullDate = format(dateObj, "yyyy-MM-dd");
+    const fullDate = analysis.sparkDates[index];
+    if (!fullDate) return;
+    const dateObj = new Date(`${fullDate}T12:00:00`);
     const dayData = analysis.dailyData.find((d) => d.date === fullDate);
 
     if (dayData && dayData.totalOz > 0) {
@@ -114,6 +117,8 @@ export function ViewerDataDisplay({ sessions, personInitials, unit }: ViewerData
         `${dayData.count} session${dayData.count !== 1 ? "s" : ""} · ${formatUnit(dayData.totalOz, unit)} total`,
         [{ text: "OK" }]
       );
+    } else {
+      Alert.alert(format(dateObj, "EEE, MMM d"), "No sessions logged this day", [{ text: "OK" }]);
     }
   };
 

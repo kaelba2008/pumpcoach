@@ -1,6 +1,6 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useState } from "react";
 import {
-  View, Text, ScrollView, Pressable, RefreshControl, Alert,
+  View, Text, ScrollView, Pressable, RefreshControl, Alert, Modal, TextInput,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useFocusEffect } from "expo-router";
@@ -9,36 +9,32 @@ import { format, startOfDay, subDays } from "date-fns";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { supabase } from "../../lib/supabase";
 import { useAuthStore } from "../../store/authStore";
-import { COLORS, SERIF, DAYS_SHORT } from "../../lib/constants";
-import { fmtOz, fmtDateTime } from "../../lib/formatters";
-import { SparkLine } from "../../components/ui/SparkLine";
-import { PumpSession, StashEntry, Profile } from "../../types";
+import { COLORS, SERIF } from "../../lib/constants";
+import { fmtOz } from "../../lib/formatters";
+import { ViewerDataDisplay } from "../../components/ViewerDataDisplay";
+import { useUnit } from "../../hooks/useUnit";
+import { PumpSession, Profile, ViewerNote } from "../../types";
 
-// Build 7-day spark data for the owner's sessions
-function buildSparkData(sessions: PumpSession[]): { data: number[]; labels: string[] } {
-  const data: number[]   = [];
-  const labels: string[] = [];
-  for (let i = 6; i >= 0; i--) {
-    const day  = startOfDay(subDays(new Date(), i));
-    const next = startOfDay(subDays(new Date(), i - 1));
-    const oz = sessions
-      .filter((s) => s.started_at >= day.toISOString() && s.started_at < next.toISOString())
-      .reduce((sum, s) => sum + (s.total_oz ?? 0), 0);
-    data.push(oz);
-    labels.push(DAYS_SHORT[day.getDay()]);
-  }
-  return { data, labels };
+function getInitials(name: string | null | undefined): string {
+  if (!name) return "?";
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0].substring(0, 1).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
 export default function ViewerDashboard() {
   const router = useRouter();
   const { user, viewingOwnerId, setViewingMode, signOut } = useAuthStore();
+  const { unit } = useUnit();
 
   const [ownerProfile, setOwnerProfile] = useState<Profile | null>(null);
   const [sessions,     setSessions]     = useState<PumpSession[]>([]);
   const [stashOz,      setStashOz]      = useState<number>(0);
-  const [loading,      setLoading]      = useState(true);
+  const [note,         setNote]         = useState<ViewerNote | null>(null);
   const [refreshing,   setRefreshing]   = useState(false);
+  const [showNoteModal, setShowNoteModal] = useState(false);
+  const [editingNote,   setEditingNote]   = useState("");
+  const [savingNote,    setSavingNote]    = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -47,12 +43,12 @@ export default function ViewerDashboard() {
   );
 
   async function loadData() {
-    if (!viewingOwnerId) return;
-    setLoading(true);
+    if (!viewingOwnerId || !user) return;
 
-    const since = subDays(new Date(), 30).toISOString();
+    // 90 days of history for viewers (IBCLCs need to see trends)
+    const since = subDays(new Date(), 90).toISOString();
 
-    const [profileRes, sessionsRes, stashRes] = await Promise.all([
+    const [profileRes, sessionsRes, stashRes, noteRes] = await Promise.all([
       supabase.from("profiles").select("*").eq("id", viewingOwnerId).maybeSingle(),
       supabase.from("pump_sessions")
         .select("*")
@@ -64,15 +60,41 @@ export default function ViewerDashboard() {
         .eq("user_id", viewingOwnerId)
         .is("used_at", null)
         .is("discarded_at", null),
+      supabase.from("viewer_notes")
+        .select("*")
+        .eq("viewer_id", user.id)
+        .eq("viewing_user_id", viewingOwnerId)
+        .maybeSingle(),
     ]);
 
     if (profileRes.data) setOwnerProfile(profileRes.data as Profile);
     if (sessionsRes.data) setSessions(sessionsRes.data as PumpSession[]);
+    setNote((noteRes.data as ViewerNote) ?? null);
 
     const totalStash = (stashRes.data ?? []).reduce((sum, e) => sum + (e.oz ?? 0), 0);
     setStashOz(totalStash);
-    setLoading(false);
     setRefreshing(false);
+  }
+
+  async function handleSaveNote() {
+    if (!user || !viewingOwnerId) return;
+    setSavingNote(true);
+    const { error } = await supabase.from("viewer_notes").upsert(
+      {
+        viewer_id: user.id,
+        viewing_user_id: viewingOwnerId,
+        note_content: editingNote,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "viewer_id,viewing_user_id" }
+    );
+    setSavingNote(false);
+    if (error) {
+      Alert.alert("Error", "Could not save the note: " + error.message);
+      return;
+    }
+    setShowNoteModal(false);
+    loadData();
   }
 
   async function handleLeaveAccess() {
@@ -100,16 +122,8 @@ export default function ViewerDashboard() {
   const todaySessions = sessions.filter((s) => s.started_at >= today);
   const todayOz = todaySessions.reduce((sum, s) => sum + (s.total_oz ?? 0), 0);
 
-  const last7 = sessions.filter((s) => s.started_at >= subDays(new Date(), 7).toISOString());
-  const avg7  = last7.length > 0
-    ? last7.reduce((sum, s) => sum + (s.total_oz ?? 0), 0) / 7
-    : 0;
-
-  const spark = buildSparkData(sessions);
-  const recent = sessions.slice(0, 10);
-
+  const initials = getInitials(ownerProfile?.display_name);
   const babyName = ownerProfile?.baby_name;
-  const ownerName = ownerProfile?.display_name ?? "your person";
   const goalOz = ownerProfile?.daily_goal_oz ?? null;
 
   // ── Render ───────────────────────────────────────────────────────────────────
@@ -127,7 +141,7 @@ export default function ViewerDashboard() {
         justifyContent: "space-between",
       }}>
         <Text style={{ fontSize: 12, color: COLORS.ink2, flex: 1, flexShrink: 1 }}>
-          Viewing <Text style={{ fontFamily: "Nunito_600SemiBold", fontWeight: "600", color: COLORS.ink }}>{ownerName}</Text>'s data
+          Viewing <Text style={{ fontFamily: "Nunito_600SemiBold", fontWeight: "600", color: COLORS.ink }}>{initials}</Text>'s data
         </Text>
         <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
           <Pressable
@@ -152,10 +166,10 @@ export default function ViewerDashboard() {
 
       <ScrollView
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadData(); }} tintColor={COLORS.primary} />}
-        contentContainerStyle={{ padding: 20, gap: 16, paddingBottom: 40 }}
+        contentContainerStyle={{ paddingVertical: 20, paddingBottom: 40 }}
       >
         {/* Header */}
-        <View style={{ marginBottom: 4 }}>
+        <View style={{ paddingHorizontal: 20, marginBottom: 16 }}>
           <Text style={{ fontFamily: SERIF, fontSize: 24, color: COLORS.ink, marginBottom: 2 }}>
             {babyName ? `${babyName}'s Pump Data` : "Pump Dashboard"}
           </Text>
@@ -166,6 +180,8 @@ export default function ViewerDashboard() {
 
         {/* Today card */}
         <View style={{
+          marginHorizontal: 20,
+          marginBottom: 16,
           backgroundColor: COLORS.surface,
           borderRadius: 20,
           padding: 20,
@@ -197,12 +213,6 @@ export default function ViewerDashboard() {
               </Text>
             </View>
             <View>
-              <Text style={{ fontSize: 12, color: COLORS.ink3, marginBottom: 2 }}>7-day avg / day</Text>
-              <Text style={{ fontSize: 18, fontFamily: "Nunito_700Bold", fontWeight: "700", color: COLORS.ink }}>
-                {fmtOz(avg7)}
-              </Text>
-            </View>
-            <View>
               <Text style={{ fontSize: 12, color: COLORS.ink3, marginBottom: 2 }}>In stash</Text>
               <Text style={{ fontSize: 18, fontFamily: "Nunito_700Bold", fontWeight: "700", color: COLORS.ink }}>
                 {fmtOz(stashOz)}
@@ -211,76 +221,86 @@ export default function ViewerDashboard() {
           </View>
         </View>
 
-        {/* 7-day chart */}
-        {spark.data.some((v) => v > 0) && (
-          <View style={{
+        {/* My notes card */}
+        <Pressable
+          onPress={() => { setEditingNote(note?.note_content ?? ""); setShowNoteModal(true); }}
+          style={{
+            marginHorizontal: 20,
+            marginBottom: 16,
             backgroundColor: COLORS.surface,
-            borderRadius: 20,
-            padding: 20,
+            borderRadius: 16,
+            padding: 16,
             borderWidth: 1,
             borderColor: COLORS.border,
-            shadowColor: COLORS.ink,
-            shadowOpacity: 0.05,
-            shadowRadius: 8,
-            elevation: 2,
-          }}>
-            <Text style={{ fontSize: 12, color: COLORS.ink3, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 12 }}>
-              Last 7 days
+          }}
+        >
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: note ? 8 : 0 }}>
+            <Text style={{ fontSize: 12, color: COLORS.ink3, textTransform: "uppercase", letterSpacing: 0.8 }}>
+              My Notes
             </Text>
-            <SparkLine data={spark.data} labels={spark.labels} height={80} />
+            <Text style={{ fontSize: 12, color: COLORS.primary, fontFamily: "Nunito_600SemiBold", fontWeight: "600" }}>
+              {note ? "Edit →" : "+ Add note"}
+            </Text>
           </View>
-        )}
-
-        {/* Recent sessions */}
-        <View style={{
-          backgroundColor: COLORS.surface,
-          borderRadius: 20,
-          padding: 20,
-          borderWidth: 1,
-          borderColor: COLORS.border,
-          shadowColor: COLORS.ink,
-          shadowOpacity: 0.05,
-          shadowRadius: 8,
-          elevation: 2,
-        }}>
-          <Text style={{ fontSize: 12, color: COLORS.ink3, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 12 }}>
-            Recent sessions
-          </Text>
-          {recent.length === 0 ? (
-            <Text style={{ fontSize: 14, color: COLORS.ink3, textAlign: "center", paddingVertical: 16 }}>
-              No sessions in the last 30 days
+          {note && (
+            <Text style={{ fontSize: 13, color: COLORS.ink2, lineHeight: 19 }} numberOfLines={4}>
+              {note.note_content}
             </Text>
-          ) : (
-            <View style={{ gap: 12 }}>
-              {recent.map((s, i) => (
-                <View key={s.id}>
-                  {i > 0 && <View style={{ height: 1, backgroundColor: COLORS.border, marginBottom: 12 }} />}
-                  <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: 13, color: COLORS.ink2 }}>
-                        {fmtDateTime(s.started_at)}
-                      </Text>
-                      {s.notes ? (
-                        <Text style={{ fontSize: 12, color: COLORS.ink3, marginTop: 2 }} numberOfLines={2}>
-                          {s.notes}
-                        </Text>
-                      ) : null}
-                    </View>
-                    <Text style={{ fontSize: 17, fontFamily: "Nunito_700Bold", fontWeight: "700", color: COLORS.primary }}>
-                      {fmtOz(s.total_oz)}
-                    </Text>
-                  </View>
-                </View>
-              ))}
-            </View>
           )}
-        </View>
+        </Pressable>
+
+        {/* Full data display: metrics, clickable graph, sessions grouped by day (90 days) */}
+        <ViewerDataDisplay
+          sessions={sessions}
+          personInitials={initials}
+          unit={unit}
+        />
 
         {/* Read-only notice */}
-        <Text style={{ fontSize: 11, color: COLORS.ink3, textAlign: "center", lineHeight: 16 }}>
-          You have read-only access. Data can only be edited by {ownerName}.
+        <Text style={{ fontSize: 11, color: COLORS.ink3, textAlign: "center", lineHeight: 16, paddingHorizontal: 20 }}>
+          You have read-only access. Data can only be edited by the account owner.
         </Text>
       </ScrollView>
+
+      {/* Note editor modal */}
+      <Modal visible={showNoteModal} animationType="slide" presentationStyle="formSheet" onRequestClose={() => setShowNoteModal(false)}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.cream }}>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: COLORS.border }}>
+            <Pressable onPress={() => setShowNoteModal(false)} hitSlop={12}>
+              <Text style={{ fontSize: 15, color: COLORS.ink3, fontFamily: "Nunito_600SemiBold", fontWeight: "600" }}>Cancel</Text>
+            </Pressable>
+            <Text style={{ fontFamily: SERIF, fontSize: 18, color: COLORS.ink }}>My Notes</Text>
+            <Pressable onPress={handleSaveNote} hitSlop={12} disabled={savingNote}>
+              <Text style={{ fontSize: 15, color: COLORS.primary, fontFamily: "Nunito_700Bold", fontWeight: "700", opacity: savingNote ? 0.5 : 1 }}>
+                {savingNote ? "Saving…" : "Save"}
+              </Text>
+            </Pressable>
+          </View>
+          <ScrollView contentContainerStyle={{ padding: 20 }} keyboardShouldPersistTaps="handled">
+            <TextInput
+              value={editingNote}
+              onChangeText={setEditingNote}
+              placeholder="Observations, recommendations, things to follow up on…"
+              multiline
+              autoFocus
+              style={{
+                backgroundColor: "#fff",
+                borderWidth: 1,
+                borderColor: COLORS.border,
+                borderRadius: 12,
+                padding: 14,
+                fontSize: 14,
+                color: COLORS.ink,
+                minHeight: 180,
+                textAlignVertical: "top",
+              }}
+            />
+            <Text style={{ fontSize: 11, color: COLORS.ink3, marginTop: 10, lineHeight: 16 }}>
+              Notes are visible to you and to the person who shared their data with you.
+            </Text>
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 }
