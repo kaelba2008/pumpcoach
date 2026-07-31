@@ -95,8 +95,9 @@ export async function signInWithGoogle(): Promise<GoogleSignInResult> {
       return {
         success:   false,
         cancelled: false,
+        // TEMP diagnostic: surfacing raw failure detail to find root cause quickly.
         error:
-          "Something went wrong with Google Sign-In. Please try again or use email instead.",
+          `Something went wrong with Google Sign-In. Please try again or use email instead. [debug: no idToken in response — keys: ${Object.keys(data ?? {}).join(",")}]`,
       };
     }
 
@@ -112,8 +113,9 @@ export async function signInWithGoogle(): Promise<GoogleSignInResult> {
       return {
         success:   false,
         cancelled: false,
+        // TEMP diagnostic: surfacing raw failure detail to find root cause quickly.
         error:
-          "Something went wrong with Google Sign-In. Please try again or use email instead.",
+          `Something went wrong with Google Sign-In. Please try again or use email instead. [debug: ${authError.status ?? "?"} ${authError.message}]`,
       };
     }
 
@@ -146,8 +148,9 @@ export async function signInWithGoogle(): Promise<GoogleSignInResult> {
     return {
       success:   false,
       cancelled: false,
+      // TEMP diagnostic: surfacing raw failure detail to find root cause quickly.
       error:
-        "Something went wrong with Google Sign-In. Please try again or use email instead.",
+        `Something went wrong with Google Sign-In. Please try again or use email instead. [debug: ${e?.code ?? "no-code"}: ${String(e?.message ?? e).slice(0, 200)}]`,
     };
   }
 }
