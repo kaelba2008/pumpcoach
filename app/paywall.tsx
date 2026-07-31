@@ -13,6 +13,7 @@ import {
   restorePurchases,
   isEntitlementActive,
   getCustomerInfo,
+  invalidateCustomerInfoCache,
 } from "../lib/purchases";
 import { useAuthStore } from "../store/authStore";
 import { supabase } from "../lib/supabase";
@@ -161,8 +162,10 @@ export default function PaywallScreen() {
       if (data?.trial_days) {
         setRefCodeResult("success");
         // The code already granted premium access server-side (RevenueCat
-        // promotional entitlement) — refresh local state so isPremium
-        // flips true, then leave the paywall automatically.
+        // promotional entitlement). The SDK's local cache has no way to know
+        // about a grant it didn't originate, so invalidate it first or
+        // refreshSubscription() will just hand back stale (non-premium) info.
+        await invalidateCustomerInfoCache();
         await refreshSubscription();
         // TEMP diagnostic: confirming whether the RC grant actually landed
         // and whether the client is seeing it, to find why isPremium isn't

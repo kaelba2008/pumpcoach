@@ -38,6 +38,13 @@ export async function getCustomerInfo(): Promise<CustomerInfo> {
   return Purchases.getCustomerInfo();
 }
 
+// Call before refreshing subscription state whenever entitlements were
+// granted server-side (e.g. a promo/referral code), since the SDK's local
+// cache has no way to know about a grant it didn't originate.
+export async function invalidateCustomerInfoCache(): Promise<void> {
+  await Purchases.invalidateCustomerInfoCache();
+}
+
 export async function getOfferings(): Promise<PurchasesOffering | null> {
   const offerings = await Purchases.getOfferings();
   return offerings.current;
