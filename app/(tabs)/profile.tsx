@@ -614,7 +614,10 @@ export default function ProfileScreen() {
   };
 
   const handleEditBabyDob = () => {
-    setDobValue(profile?.baby_dob ? new Date(profile.baby_dob) : new Date());
+    // baby_dob is stored as a bare "yyyy-MM-dd" string, which parses as UTC
+    // midnight and rolls back a day once shown in a timezone west of UTC.
+    // Anchor to local noon so the picker opens on the correct day.
+    setDobValue(profile?.baby_dob ? new Date(`${profile.baby_dob}T12:00:00`) : new Date());
     setShowDobPicker(true);
   };
 

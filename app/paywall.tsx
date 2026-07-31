@@ -159,6 +159,11 @@ export default function PaywallScreen() {
       });
       if (data?.trial_days) {
         setRefCodeResult("success");
+        // The code already granted premium access server-side (RevenueCat
+        // promotional entitlement) — refresh local state so isPremium
+        // flips true, then leave the paywall automatically.
+        await refreshSubscription();
+        setTimeout(() => router.back(), 1400);
       } else {
         setRefCodeResult("invalid");
       }
@@ -375,15 +380,15 @@ export default function PaywallScreen() {
           <Pressable
             onPress={handlePurchase}
             disabled={busy || loadingOffers}
-            style={({ pressed }) => ({
+            style={{ opacity: busy || loadingOffers ? 0.7 : 1 }}
+          >
+            <View style={{
               backgroundColor: COLORS.primary,
               borderRadius: 18, paddingVertical: 18,
               alignItems: "center",
-              opacity: pressed || busy ? 0.8 : 1,
               shadowColor: COLORS.primary,
               shadowOpacity: 0.25, shadowRadius: 10, elevation: 4,
-            })}
-          >
+            }}>
             {purchasing ? (
               <ActivityIndicator color="#fff" />
             ) : (
@@ -393,6 +398,7 @@ export default function PaywallScreen() {
                 {ctaLabel()}
               </Text>
             )}
+            </View>
           </Pressable>
 
           {hasTrial(selected) && (
@@ -437,9 +443,21 @@ export default function PaywallScreen() {
                 }}
               />
               {refCodeResult === "success" && (
-                <Text style={{ fontSize: 13, color: "#4CAF82", textAlign: "center", fontFamily: "Nunito_600SemiBold", fontWeight: "600" }}>
-                  Code applied. Enjoy your extended trial.
-                </Text>
+                <View style={{ gap: 10 }}>
+                  <Text style={{ fontSize: 13, color: "#4CAF82", textAlign: "center", fontFamily: "Nunito_600SemiBold", fontWeight: "600" }}>
+                    Code applied. Enjoy your extended trial.
+                  </Text>
+                  <Pressable onPress={() => router.back()}>
+                    <View style={{
+                      backgroundColor: COLORS.primary,
+                      borderRadius: 12, paddingVertical: 12, alignItems: "center",
+                    }}>
+                      <Text style={{ color: "#fff", fontFamily: "Nunito_700Bold", fontWeight: "700", fontSize: 14 }}>
+                        Continue to App
+                      </Text>
+                    </View>
+                  </Pressable>
+                </View>
               )}
               {refCodeResult === "invalid" && (
                 <Text style={{ fontSize: 13, color: COLORS.error, textAlign: "center" }}>

@@ -42,7 +42,10 @@ export function ViewerDataDisplay({ sessions, personInitials, unit }: ViewerData
       const avgOz = totalOz / sessionList.length;
       dailyData.push({
         date: dateStr,
-        dateObj: new Date(dateStr),
+        // Bare "yyyy-MM-dd" strings parse as UTC midnight, which rolls
+        // back a day once formatted in any timezone west of UTC. Anchor
+        // to local noon instead, same fix as handleDayPress below.
+        dateObj: new Date(`${dateStr}T12:00:00`),
         sessions: sessionList,
         totalOz,
         avgOz,
