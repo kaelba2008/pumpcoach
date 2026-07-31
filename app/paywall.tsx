@@ -12,6 +12,7 @@ import {
   purchasePackage,
   restorePurchases,
   isEntitlementActive,
+  getCustomerInfo,
 } from "../lib/purchases";
 import { useAuthStore } from "../store/authStore";
 import { supabase } from "../lib/supabase";
@@ -163,6 +164,20 @@ export default function PaywallScreen() {
         // promotional entitlement) — refresh local state so isPremium
         // flips true, then leave the paywall automatically.
         await refreshSubscription();
+        // TEMP diagnostic: confirming whether the RC grant actually landed
+        // and whether the client is seeing it, to find why isPremium isn't
+        // flipping after a code redemption.
+        try {
+          const info = await getCustomerInfo();
+          Alert.alert(
+            "Debug: code redemption",
+            `trial_days: ${data.trial_days}\n` +
+            `rcErrors: ${JSON.stringify(data.rcErrors ?? null)}\n` +
+            `active entitlements: ${Object.keys(info.entitlements.active).join(", ") || "none"}`
+          );
+        } catch (e: any) {
+          Alert.alert("Debug: getCustomerInfo failed", String(e?.message ?? e));
+        }
         setTimeout(() => router.back(), 1400);
       } else {
         setRefCodeResult("invalid");
