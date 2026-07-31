@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   View, Text, ScrollView, Pressable, ActivityIndicator, Alert, Linking, Image, TextInput,
+  KeyboardAvoidingView, Platform,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -52,6 +53,8 @@ export default function PaywallScreen() {
   const [refCode,         setRefCode]         = useState("");
   const [refCodeResult,   setRefCodeResult]   = useState<"idle" | "success" | "invalid">("idle");
   const [refCodeApplying, setRefCodeApplying] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
+  const codeInputRef = useRef<View>(null);
 
   // Fetch RevenueCat offerings on mount
   useEffect(() => {
@@ -168,7 +171,12 @@ export default function PaywallScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.cream }} edges={["top", "bottom"]}>
-      <ScrollView showsVerticalScrollIndicator={false} bounces>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={0}
+      >
+      <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false} bounces>
 
         {/* ── Header gradient ─────────────────────────── */}
         <LinearGradient
@@ -395,15 +403,22 @@ export default function PaywallScreen() {
             </Text>
           )}
 
-          {/* ── Referral code ────────────────────────────── */}
+          {/* ── Referral / promo code ───────────────────── */}
           {!showRefCode ? (
-            <Pressable onPress={() => setShowRefCode(true)} style={{ alignItems: "center", paddingVertical: 4 }}>
+            <Pressable
+              onPress={() => {
+                setShowRefCode(true);
+                // Give the input time to render, then scroll to it
+                setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 150);
+              }}
+              style={{ alignItems: "center", paddingVertical: 4 }}
+            >
               <Text style={{ fontSize: 13, color: COLORS.ink3 }}>
-                Have a referral code? Tap to enter it.
+                Have a promo or referral code? Tap to enter it.
               </Text>
             </Pressable>
           ) : (
-            <View style={{ gap: 10 }}>
+            <View ref={codeInputRef} style={{ gap: 10 }}>
               <TextInput
                 value={refCode}
                 onChangeText={(t) => { setRefCode(t.toUpperCase()); setRefCodeResult("idle"); }}
@@ -411,6 +426,8 @@ export default function PaywallScreen() {
                 placeholderTextColor={COLORS.ink3}
                 autoCapitalize="characters"
                 autoCorrect={false}
+                autoFocus
+                onFocus={() => setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 300)}
                 style={{
                   backgroundColor: "#fff", borderRadius: 12,
                   borderWidth: 1.5,
@@ -437,11 +454,16 @@ export default function PaywallScreen() {
                     backgroundColor: refCode.trim() ? COLORS.primary : COLORS.muted,
                     borderRadius: 12, paddingVertical: 12, alignItems: "center",
                     opacity: refCodeApplying ? 0.7 : 1,
+                    borderWidth: refCode.trim() ? 0 : 1,
+                    borderColor: COLORS.border,
                   }}
                 >
                   {refCodeApplying
-                    ? <ActivityIndicator color="#fff" size="small" />
-                    : <Text style={{ color: "#fff", fontFamily: "Nunito_700Bold", fontWeight: "700", fontSize: 14 }}>Apply Code</Text>
+                    ? <ActivityIndicator color={refCode.trim() ? "#fff" : COLORS.ink3} size="small" />
+                    : <Text style={{
+                        color: refCode.trim() ? "#fff" : COLORS.ink3,
+                        fontFamily: "Nunito_700Bold", fontWeight: "700", fontSize: 14,
+                      }}>Apply Code</Text>
                   }
                 </Pressable>
               )}
@@ -490,6 +512,7 @@ export default function PaywallScreen() {
 
         </View>
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

@@ -65,17 +65,60 @@ serve(async (req) => {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
-    // Look up the referral code
+    const normalizedCode = code.trim().toUpperCase();
+
+    // ── Path 1: admin promo codes (no referrer) ───────────────────────────────
+    const { data: promoRow } = await admin
+      .from("promo_codes")
+      .select("code, reward_days, max_uses, use_count, expires_at")
+      .eq("code", normalizedCode)
+      .maybeSingle();
+
+    if (promoRow) {
+      // Check expiry
+      if (promoRow.expires_at && new Date(promoRow.expires_at) < new Date()) {
+        return json({ error: "This code has expired" }, 400);
+      }
+      // Check max uses
+      if (promoRow.max_uses !== null && promoRow.use_count >= promoRow.max_uses) {
+        return json({ error: "This code has reached its usage limit" }, 400);
+      }
+      // Check if user already redeemed this promo
+      const { data: existingPromo } = await admin
+        .from("promo_uses")
+        .select("id")
+        .eq("code", normalizedCode)
+        .eq("used_by", newUserId)
+        .maybeSingle();
+      if (existingPromo) return json({ error: "You have already redeemed this code" }, 400);
+
+      // Record use
+      const { error: promoInsertErr } = await admin
+        .from("promo_uses")
+        .insert({ code: normalizedCode, used_by: newUserId });
+      if (promoInsertErr) return json({ error: "Failed to record redemption" }, 500);
+
+      // Increment use_count
+      await admin.from("promo_codes").update({ use_count: promoRow.use_count + 1 }).eq("code", normalizedCode);
+
+      // Grant trial days
+      const days = (promoRow.reward_days as number) ?? 30;
+      const errors: string[] = [];
+      await grantPromoDays(newUserId, days).catch((e) => errors.push(e.message));
+      return json({ success: true, trial_days: days, rcErrors: errors.length ? errors : undefined });
+    }
+
+    // ── Path 2: user referral codes ───────────────────────────────────────────
     const { data: codeRow, error: codeErr } = await admin
       .from("referral_codes")
       .select("id, user_id, reward_days")
-      .eq("code", code.trim().toUpperCase())
+      .eq("code", normalizedCode)
       .single();
 
     if (codeErr || !codeRow) return json({ error: "Code not found" }, 404);
     if (codeRow.user_id === newUserId) return json({ error: "You cannot use your own referral code" }, 400);
 
-    // Check the caller hasn't already redeemed a code
+    // Check the caller hasn't already redeemed a referral code
     const { data: existing } = await admin
       .from("referral_uses")
       .select("id")
@@ -106,7 +149,7 @@ serve(async (req) => {
       .eq("code_id", codeRow.id)
       .eq("used_by", newUserId);
 
-    return json({ success: true, rcErrors: errors.length ? errors : undefined });
+    return json({ success: true, trial_days: rewardDays, rcErrors: errors.length ? errors : undefined });
   } catch (e) {
     console.error("redeem-referral error:", e);
     return json({ error: "Internal error" }, 500);

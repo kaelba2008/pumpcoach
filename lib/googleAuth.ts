@@ -108,6 +108,7 @@ export async function signInWithGoogle(): Promise<GoogleSignInResult> {
       });
 
     if (authError) {
+      console.error("[GoogleAuth] Supabase signInWithIdToken error:", authError.message, authError.status);
       return {
         success:   false,
         cancelled: false,
@@ -141,6 +142,7 @@ export async function signInWithGoogle(): Promise<GoogleSignInResult> {
     }
 
     // Any other unexpected error
+    console.error("[GoogleAuth] Unexpected error:", e?.code, e?.message, e);
     return {
       success:   false,
       cancelled: false,
