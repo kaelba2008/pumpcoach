@@ -52,7 +52,7 @@ export default function PaywallScreen() {
   const [restoring,       setRestoring]       = useState(false);
   const [showRefCode,     setShowRefCode]     = useState(false);
   const [refCode,         setRefCode]         = useState("");
-  const [refCodeResult,   setRefCodeResult]   = useState<"idle" | "success" | "invalid">("idle");
+  const [refCodeResult,   setRefCodeResult]   = useState<"idle" | "success" | "invalid" | "already_used">("idle");
   const [refCodeApplying, setRefCodeApplying] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
   const codeInputRef = useRef<View>(null);
@@ -155,7 +155,7 @@ export default function PaywallScreen() {
     setRefCodeApplying(true);
     setRefCodeResult("idle");
     try {
-      const { data } = await supabase.functions.invoke("redeem-referral", {
+      const { data, error } = await supabase.functions.invoke("redeem-referral", {
         body: { code: trimmed },
       });
       if (data?.trial_days) {
@@ -180,7 +180,14 @@ export default function PaywallScreen() {
         }
         setTimeout(() => router.back(), 1400);
       } else {
-        setRefCodeResult("invalid");
+        let serverMessage = "";
+        if (error) {
+          try {
+            const body = await (error as any).context?.json?.();
+            serverMessage = body?.error ?? "";
+          } catch {}
+        }
+        setRefCodeResult(serverMessage.toLowerCase().includes("already") ? "already_used" : "invalid");
       }
     } catch {
       setRefCodeResult("invalid");
@@ -452,7 +459,7 @@ export default function PaywallScreen() {
                 style={{
                   backgroundColor: "#fff", borderRadius: 12,
                   borderWidth: 1.5,
-                  borderColor: refCodeResult === "success" ? "#4CAF82" : refCodeResult === "invalid" ? COLORS.error : COLORS.border,
+                  borderColor: refCodeResult === "success" ? "#4CAF82" : (refCodeResult === "invalid" || refCodeResult === "already_used") ? COLORS.error : COLORS.border,
                   paddingHorizontal: 16, paddingVertical: 12,
                   fontSize: 15, color: COLORS.ink, textAlign: "center", letterSpacing: 1,
                 }}
@@ -477,6 +484,11 @@ export default function PaywallScreen() {
               {refCodeResult === "invalid" && (
                 <Text style={{ fontSize: 13, color: COLORS.error, textAlign: "center" }}>
                   That code does not look right. Check with whoever shared it.
+                </Text>
+              )}
+              {refCodeResult === "already_used" && (
+                <Text style={{ fontSize: 13, color: COLORS.error, textAlign: "center" }}>
+                  You've already used this code!
                 </Text>
               )}
               {refCodeResult !== "success" && (

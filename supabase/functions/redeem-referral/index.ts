@@ -31,7 +31,6 @@ async function grantPromoDays(rcUserId: string, days: number): Promise<void> {
       headers: {
         "Authorization":  `Bearer ${RC_SECRET_KEY}`,
         "Content-Type":   "application/json",
-        "X-Platform":     "ios",
       },
       body: JSON.stringify({ end_time_ms: endTimeMs }),
     }
