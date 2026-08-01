@@ -10,6 +10,7 @@ import {
   PREMIUM_ENTITLEMENT,
 } from "../lib/purchases";
 import { signOutGoogle } from "../lib/googleAuth";
+import { scheduleTrialEndingReminder, cancelTrialEndingReminder } from "../lib/notifications";
 
 interface AuthState {
   session:        Session | null;
@@ -54,11 +55,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   updateFromCustomerInfo: (info) => {
     const premium    = isEntitlementActive(info);
     const entitlement = info.entitlements.active[PREMIUM_ENTITLEMENT];
+    // Anyone whose access won't auto-renew has a hard end date worth
+    // surfacing — a promo/referral code grant, or a real trial the user
+    // has already cancelled. Not just entitlements RevenueCat tags TRIAL.
     const trialEndsAt =
-      entitlement?.periodType === "TRIAL" && entitlement.expirationDate
-        ? new Date(entitlement.expirationDate)
+      entitlement && !entitlement.willRenew && entitlement.expirationDateMillis
+        ? new Date(entitlement.expirationDateMillis)
         : null;
     set({ isPremium: premium, trialEndsAt });
+
+    if (trialEndsAt) {
+      scheduleTrialEndingReminder(trialEndsAt.getTime()).catch(() => {});
+    } else {
+      cancelTrialEndingReminder().catch(() => {});
+    }
   },
 
   loadProfile: async () => {

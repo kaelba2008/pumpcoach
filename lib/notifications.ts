@@ -99,6 +99,40 @@ export async function syncAllReminders(reminders: Reminder[]): Promise<void> {
   );
 }
 
+// ── Trial/promo ending reminder ───────────────────────────────────────────
+// Covers both a promo code grant and a real trial the user has already
+// cancelled — anything with a hard end date and no auto-renewal behind it.
+const TRIAL_ENDING_NOTIFICATION_ID = "trial_ending_reminder";
+const REMINDER_LEAD_MS = 3 * 24 * 60 * 60 * 1000; // 3 days before expiration
+
+// Safe to call every time fresh subscription info arrives — always cancels
+// any previously scheduled reminder first, so it stays in sync with the
+// latest expiration date instead of stacking duplicates.
+export async function scheduleTrialEndingReminder(expirationDateMillis: number): Promise<void> {
+  await Notifications.cancelScheduledNotificationAsync(TRIAL_ENDING_NOTIFICATION_ID).catch(() => {});
+
+  const remindAt = expirationDateMillis - REMINDER_LEAD_MS;
+  if (remindAt <= Date.now()) return; // already past the reminder window
+
+  await Notifications.scheduleNotificationAsync({
+    identifier: TRIAL_ENDING_NOTIFICATION_ID,
+    content: {
+      title: "Your trial ends in 3 days",
+      body:  "Subscribe to keep your AI coach insights, flange fit checks, and full session history.",
+      sound: true,
+      ...(Platform.OS === "android" && { channelId: "pump-reminders" }),
+    },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.DATE,
+      date: remindAt,
+    },
+  });
+}
+
+export async function cancelTrialEndingReminder(): Promise<void> {
+  await Notifications.cancelScheduledNotificationAsync(TRIAL_ENDING_NOTIFICATION_ID).catch(() => {});
+}
+
 // ── Snooze ─────────────────────────────────────────────────────────────────
 export async function scheduleSnooze(minutes: number, label: string | null): Promise<void> {
   // Cancel any pending snooze before setting a new one
