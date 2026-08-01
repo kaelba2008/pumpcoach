@@ -15,19 +15,16 @@ did — evidence-based, but never clinical-distance, never guilt. The existing
 already gestures at this; the problem is the surrounding system doesn't
 consistently deliver on it.
 
-- [ ] **Unify the "oz/hr" metric — it currently means two different things.**
-      Home screen (`components/SessionAnalysis.tsx` `ozPerHour`) divides
-      *today's total ounces so far* by a flat 24 hours regardless of time of
-      day or session count — structurally guaranteed to look low most of the
-      day (e.g. 0.17 oz/hr), which is actively anxiety-inducing since it's
-      not measuring pumping performance at all, just how much of the day has
-      elapsed. Viewer dashboard / mom's own session analysis (already fixed
-      once for a duration_sec:0 bug) computes actual ounces ÷ actual pumping
-      hours — a real "rate while pumping" metric, and reads much higher
-      (e.g. 9 oz/hr). Both are internally consistent by their own definition,
-      but showing both as unqualified "oz/hr" guarantees confusion. Need to
-      pick ONE definition, use it everywhere, and label it honestly (e.g.
-      distinguish "today's pace" from "output while pumping").
+- [x] **Unify the "oz/hr" metric — it currently means two different things.**
+      DONE (Aug 1, 2026): home screen (`components/SessionAnalysis.tsx`)
+      previously divided today's total ounces by a flat 24 hours regardless
+      of time of day or session count, which looked artificially low most
+      of the day (e.g. 0.17 oz/hr) and wasn't measuring pumping performance
+      at all. Now both the home screen and viewer dashboard use the same
+      definition (actual oz ÷ actual pumping hours) and the same label,
+      "Output While Pumping." Also dropped the stale "~1 oz/hr" baseline
+      caption, which was calibrated to the old, different-scale metric and
+      would have read as nonsense next to the new number.
 - [ ] **Insight contradictions across screens — no cross-pattern consistency
       check.** Katie saw "your output has dropped 25%... triple feeding
       takes an enormous toll" on one screen and "stay the course, what
