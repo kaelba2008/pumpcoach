@@ -58,15 +58,19 @@ export function ViewerDataDisplay({ sessions, personInitials, unit }: ViewerData
 
     // Calculate overall metrics
     const totalOz = sessions.reduce((sum, s) => sum + (s.total_oz ?? 0), 0);
-    // Efficiency must pair each session's oz with ITS OWN duration — manually
-    // logged sessions can have duration_sec: 0 (left blank), and a mis-tap
-    // or test session (e.g. 19 seconds) has real oz but almost no time,
-    // either way wildly inflating oz/hr. Excluding anything under
-    // MIN_MEANINGFUL_SESSION_SEC from both sides keeps the ratio honest.
+    // Displayed as "oz per 20 min" rather than an hourly rate — a rate
+    // extrapolated to a full hour, or averaged across elapsed calendar time,
+    // gets skewed whenever sessions aren't evenly spaced and doesn't match
+    // anything a mom actually experiences. oz-per-minute scaled to a
+    // familiar 20-minute session length is stable regardless of gaps
+    // between sessions. Manually logged sessions can have duration_sec: 0
+    // (left blank), and a mis-tap/test session (e.g. 19 seconds) has real
+    // oz but almost no time — excluding anything under
+    // MIN_MEANINGFUL_SESSION_SEC keeps this honest either way.
     const timedSessions = sessions.filter((s) => (s.duration_sec ?? 0) >= MIN_MEANINGFUL_SESSION_SEC);
-    const timedOz    = timedSessions.reduce((sum, s) => sum + (s.total_oz ?? 0), 0);
-    const timedHours = timedSessions.reduce((sum, s) => sum + (s.duration_sec ?? 0), 0) / 3600;
-    const efficiencyPerHour = timedHours > 0 ? timedOz / timedHours : 0;
+    const timedOz      = timedSessions.reduce((sum, s) => sum + (s.total_oz ?? 0), 0);
+    const timedMinutes = timedSessions.reduce((sum, s) => sum + ((s.duration_sec ?? 0) / 60), 0);
+    const ozPer20Min = timedMinutes > 0 ? (timedOz / timedMinutes) * 20 : 0;
     const avgPerDay = dailyData.length > 0 ? totalOz / dailyData.length : 0;
 
     // Build 7-day (or full range) sparkline data
@@ -95,7 +99,7 @@ export function ViewerDataDisplay({ sessions, personInitials, unit }: ViewerData
     return {
       dailyData,
       totalOz,
-      efficiencyPerHour: Math.round(efficiencyPerHour * 100) / 100,
+      ozPer20Min: Math.round(ozPer20Min * 10) / 10,
       avgPerDay: Math.round(avgPerDay * 100) / 100,
       sparkData,
       sparkLabels,
@@ -166,10 +170,10 @@ export function ViewerDataDisplay({ sessions, personInitials, unit }: ViewerData
           </View>
           <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 11, color: COLORS.ink3, marginBottom: 4, fontWeight: "600" }}>
-              Output While Pumping
+              Output per 20 Min
             </Text>
             <Text style={{ fontSize: 18, fontWeight: "700", color: COLORS.primary }}>
-              {analysis.efficiencyPerHour} oz/hr
+              {formatUnit(analysis.ozPer20Min, unit)}
             </Text>
           </View>
         </View>

@@ -47,15 +47,13 @@ export function SessionAnalysis({ sessions, unit, babyCount = 1 }: SessionAnalys
     const timedMinutes = timedSessions.reduce((sum, s) => sum + ((s.duration_sec ?? 0) / 60), 0);
     const efficiency = timedMinutes > 0 ? timedOz / timedMinutes : 0;
 
-    // Output per hour of actual pumping — same definition used on the
-    // viewer dashboard, so this number means the same thing everywhere in
-    // the app instead of two different "oz/hr" metrics disagreeing with
-    // each other. (Previously this divided today's total by a flat 24
-    // hours regardless of time of day or session count, which made it
-    // look artificially low most of the day — not a measure of pumping
-    // performance at all, just how much of the day had elapsed.)
-    const timedHours = timedMinutes / 60;
-    const ozPerHour = timedHours > 0 ? timedOz / timedHours : null;
+    // Displayed as "oz per 20 min" rather than an hourly rate — a rate
+    // extrapolated to a full hour (or averaged across elapsed calendar time)
+    // gets skewed whenever sessions aren't evenly spaced, and doesn't match
+    // anything a mom actually experiences. oz-per-minute scaled to a
+    // familiar 20-minute session length is stable regardless of gaps
+    // between sessions, since it never touches elapsed time between them.
+    const ozPer20Min = timedMinutes > 0 ? efficiency * 20 : null;
 
     // Session quality score (0-100)
     const avgOz = totalOz / sessions.length;
@@ -110,7 +108,7 @@ export function SessionAnalysis({ sessions, unit, babyCount = 1 }: SessionAnalys
 
     return {
       efficiency: Math.round(efficiency * 100) / 100,
-      ozPerHour: ozPerHour ? Math.round(ozPerHour * 100) / 100 : null,
+      ozPer20Min: ozPer20Min != null ? Math.round(ozPer20Min * 10) / 10 : null,
       qualityScore,
       trendPct: Math.round(trendPct),
       bestHour,
@@ -183,9 +181,9 @@ export function SessionAnalysis({ sessions, unit, babyCount = 1 }: SessionAnalys
       {/* Efficiency & Trend */}
       <View style={{ flexDirection: "row", gap: 3, marginBottom: 16 }}>
         <View style={{ flex: 1 }}>
-          <Text className="text-xs text-ink-3 font-sans-semi mb-1">Output While Pumping</Text>
+          <Text className="text-xs text-ink-3 font-sans-semi mb-1">Output per 20 Min</Text>
           <Text className="text-lg font-sans-bold text-ink">
-            {analysis.ozPerHour ? `${formatUnit(analysis.ozPerHour, unit)}/hr` : "—"}
+            {analysis.ozPer20Min != null ? formatUnit(analysis.ozPer20Min, unit) : "—"}
           </Text>
         </View>
         <View style={{ flex: 1 }}>
