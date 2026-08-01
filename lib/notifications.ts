@@ -111,10 +111,7 @@ const REMINDER_LEAD_MS = 3 * 24 * 60 * 60 * 1000; // 3 days before expiration
 export async function scheduleTrialEndingReminder(expirationDateMillis: number): Promise<void> {
   await Notifications.cancelScheduledNotificationAsync(TRIAL_ENDING_NOTIFICATION_ID).catch(() => {});
 
-  // TEMP: fire 15s from now instead of 3 days before real expiration, so the
-  // notification can be watched live on-device. Revert once confirmed.
-  const remindAt = Date.now() + 15 * 1000;
-  // const remindAt = expirationDateMillis - REMINDER_LEAD_MS;
+  const remindAt = expirationDateMillis - REMINDER_LEAD_MS;
   if (remindAt <= Date.now()) return; // already past the reminder window
 
   await Notifications.scheduleNotificationAsync({
