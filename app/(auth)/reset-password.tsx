@@ -9,9 +9,11 @@ import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
 import { supabase } from "../../lib/supabase";
 import { COLORS, SERIF } from "../../lib/constants";
+import { useAuthStore } from "../../store/authStore";
 
 export default function ResetPasswordScreen() {
   const router = useRouter();
+  const setPasswordRecovery = useAuthStore((s) => s.setPasswordRecovery);
   const [password,  setPassword]  = useState("");
   const [confirm,   setConfirm]   = useState("");
   const [loading,   setLoading]   = useState(false);
@@ -39,7 +41,9 @@ export default function ResetPasswordScreen() {
       return;
     }
 
-    // Success — route to tabs and show confirmation
+    // Success — clear the recovery flag so normal routing resumes, then
+    // route to tabs and show confirmation
+    setPasswordRecovery(false);
     router.replace("/(tabs)" as any);
     setTimeout(() => {
       Alert.alert("Password updated", "Your new password is set. You are now signed in.");
@@ -92,7 +96,10 @@ export default function ResetPasswordScreen() {
           />
 
           <Pressable
-            onPress={() => router.replace("/welcome" as any)}
+            onPress={() => {
+              setPasswordRecovery(false);
+              router.replace("/welcome" as any);
+            }}
             style={{ alignItems: "center" }}
           >
             <Text style={{ fontSize: 13, color: COLORS.ink3 }}>Cancel and go back to sign in</Text>

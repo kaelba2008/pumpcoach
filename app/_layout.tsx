@@ -1,6 +1,6 @@
 import "../global.css";
 import React, { useEffect } from "react";
-import { Linking, Alert } from "react-native";
+import { Linking } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -35,10 +35,6 @@ import { AppState } from "react-native";
 async function handleDeepLink(url: string, router: ReturnType<typeof useRouter>) {
   if (!url) return;
 
-  // TEMP diagnostic: confirming the exact deep link shape (implicit fragment
-  // tokens vs a PKCE `?code=` link) so we know which parsing path to fix.
-  Alert.alert("Debug: deep link received", url);
-
   // Fragment-based tokens: pumpcoach://#access_token=...&refresh_token=...&type=recovery
   if (url.includes("access_token")) {
     const fragment = url.includes("#") ? url.split("#")[1] : url.split("?")[1];
@@ -48,12 +44,14 @@ async function handleDeepLink(url: string, router: ReturnType<typeof useRouter>)
     const refreshToken = params.get("refresh_token");
     const type         = params.get("type");
     if (accessToken && refreshToken) {
+      // Flip this BEFORE setSession() resolves — the session-change effect
+      // elsewhere in this file reacts to the new session and can win the
+      // race to redirect into the main app before our own navigation below
+      // takes effect. This flag is what makes that effect stand down.
+      if (type === "recovery") useAuthStore.getState().setPasswordRecovery(true);
       await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
-      // setSession() just establishes a session — it doesn't reliably emit
-      // a PASSWORD_RECOVERY auth event on its own, so route explicitly
-      // whenever the link itself says this is a recovery flow.
       if (type === "recovery") {
-        router.push("/(auth)/reset-password" as any);
+        router.replace("/(auth)/reset-password" as any);
       }
     }
   }
@@ -65,9 +63,10 @@ async function handleDeepLink(url: string, router: ReturnType<typeof useRouter>)
     const tokenHash  = params.get("token_hash");
     const type       = params.get("type") as any;
     if (tokenHash && type) {
+      if (type === "recovery") useAuthStore.getState().setPasswordRecovery(true);
       await supabase.auth.verifyOtp({ token_hash: tokenHash, type });
       if (type === "recovery") {
-        router.push("/(auth)/reset-password" as any);
+        router.replace("/(auth)/reset-password" as any);
       }
     }
   }
@@ -76,7 +75,7 @@ async function handleDeepLink(url: string, router: ReturnType<typeof useRouter>)
 function AuthGate({ children }: { children: React.ReactNode }) {
   const router   = useRouter();
   const segments = useSegments();
-  const { session, setSession, loadProfile, refreshSubscription, updateFromCustomerInfo, isLoading, loadViewerStatus } = useAuthStore();
+  const { session, setSession, loadProfile, refreshSubscription, updateFromCustomerInfo, isLoading, loadViewerStatus, isPasswordRecovery } = useAuthStore();
 
   useEffect(() => {
     // Configure RevenueCat before anything else so it's ready when we restore the session
@@ -156,6 +155,10 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (isLoading) return;
+    // A recovery deep link is being handled — segments alone aren't a
+    // reliable enough signal here since this effect can re-run on the new
+    // session before our own navigation to reset-password has landed.
+    if (isPasswordRecovery) return;
 
     const seg0 = segments[0] as string;
     const seg1 = segments[1] as string | undefined;
@@ -199,7 +202,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     } else if (!inAuth && !inWelcome && !inViewerInvite) {
       router.replace("/welcome");
     }
-  }, [session, segments, isLoading]);
+  }, [session, segments, isLoading, isPasswordRecovery]);
 
   return <>{children}</>;
 }

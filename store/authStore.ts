@@ -21,10 +21,17 @@ interface AuthState {
   trialEndsAt:    Date | null;
   viewingOwnerId: string | null;  // non-null when currently viewing someone else's data
   knownOwnerId:   string | null;  // non-null when user has a viewer relationship (persists through mode switches)
+  // True from the moment a recovery deep link is detected until the reset
+  // screen is dismissed. The normal "session exists -> route into the app"
+  // effect must not fire during this window, and route segments alone
+  // aren't a reliable enough signal since setSession() can resolve before
+  // our own navigation to the reset screen has taken effect.
+  isPasswordRecovery: boolean;
 
   setSession:             (session: Session | null) => void;
   setProfile:             (profile: Profile | null) => void;
   setIsPremium:           (isPremium: boolean) => void;
+  setPasswordRecovery:    (value: boolean) => void;
   updateFromCustomerInfo: (info: CustomerInfo) => void;
   loadProfile:            () => Promise<void>;
   signOut:                () => Promise<void>;
@@ -42,9 +49,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   trialEndsAt:    null,
   viewingOwnerId: null,
   knownOwnerId:   null,
+  isPasswordRecovery: false,
 
   setSession: (session) =>
     set({ session, user: session?.user ?? null, isLoading: false }),
+
+  setPasswordRecovery: (value) => set({ isPasswordRecovery: value }),
 
   setProfile: (profile) => set({ profile }),
 
@@ -120,6 +130,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     signOutGoogle().catch(() => {});
     await logoutPurchases();
     await supabase.auth.signOut();
-    set({ session: null, user: null, profile: null, isPremium: false, trialEndsAt: null, viewingOwnerId: null, knownOwnerId: null });
+    set({ session: null, user: null, profile: null, isPremium: false, trialEndsAt: null, viewingOwnerId: null, knownOwnerId: null, isPasswordRecovery: false });
   },
 }));
