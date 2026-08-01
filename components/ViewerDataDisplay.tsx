@@ -2,7 +2,7 @@ import React, { useMemo, useState } from "react";
 import { View, Text, ScrollView, Pressable, Alert } from "react-native";
 import { format, startOfDay, subDays } from "date-fns";
 import { PumpSession } from "../types";
-import { COLORS, SERIF } from "../lib/constants";
+import { COLORS, SERIF, MIN_MEANINGFUL_SESSION_SEC } from "../lib/constants";
 import { formatUnit } from "../lib/units";
 import { SparkLine } from "./ui/SparkLine";
 
@@ -59,10 +59,11 @@ export function ViewerDataDisplay({ sessions, personInitials, unit }: ViewerData
     // Calculate overall metrics
     const totalOz = sessions.reduce((sum, s) => sum + (s.total_oz ?? 0), 0);
     // Efficiency must pair each session's oz with ITS OWN duration — manually
-    // logged sessions can have duration_sec: 0 (left blank), and mixing their
-    // oz into this ratio without their (lack of) time wildly inflates oz/hr.
-    // Excluding undurated sessions from both sides keeps the ratio honest.
-    const timedSessions = sessions.filter((s) => (s.duration_sec ?? 0) > 0);
+    // logged sessions can have duration_sec: 0 (left blank), and a mis-tap
+    // or test session (e.g. 19 seconds) has real oz but almost no time,
+    // either way wildly inflating oz/hr. Excluding anything under
+    // MIN_MEANINGFUL_SESSION_SEC from both sides keeps the ratio honest.
+    const timedSessions = sessions.filter((s) => (s.duration_sec ?? 0) >= MIN_MEANINGFUL_SESSION_SEC);
     const timedOz    = timedSessions.reduce((sum, s) => sum + (s.total_oz ?? 0), 0);
     const timedHours = timedSessions.reduce((sum, s) => sum + (s.duration_sec ?? 0), 0) / 3600;
     const efficiencyPerHour = timedHours > 0 ? timedOz / timedHours : 0;

@@ -67,6 +67,11 @@ export const MILK_EXPIRY_HOURS: Record<string, number> = {
 };
 export const EXPIRY_WARNING_HOURS = 72;
 
+// Sessions shorter than this are almost certainly a mis-tap or test log, not
+// a real pumping session — excluded from oz/hr-style rate calculations so a
+// 20-30 second stray entry can't extrapolate into an absurd hourly figure.
+export const MIN_MEANINGFUL_SESSION_SEC = 120;
+
 export const SESSION_QUICK_PROMPTS = [
   "Why did my output dip today?",
   "Can I drop a session?",

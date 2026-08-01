@@ -1,7 +1,7 @@
 import React, { useMemo } from "react";
 import { View, Text } from "react-native";
 import { PumpSession } from "../types";
-import { COLORS, SERIF } from "../lib/constants";
+import { COLORS, SERIF, MIN_MEANINGFUL_SESSION_SEC } from "../lib/constants";
 import { formatUnit } from "../lib/units";
 
 interface SessionAnalysisProps {
@@ -37,10 +37,12 @@ export function SessionAnalysis({ sessions, unit, babyCount = 1 }: SessionAnalys
     const totalOz = sessions.reduce((sum, s) => sum + (s.total_oz ?? 0), 0);
     const totalMinutes = sessions.reduce((sum, s) => sum + ((s.duration_sec ?? 0) / 60), 0);
     // Efficiency must pair oz with ITS OWN session's duration — a session
-    // logged without a duration (duration_sec: 0) still counts its oz above
-    // but would contribute no time here, inflating the ratio for everyone
-    // else. Exclude undurated sessions from both sides of this one ratio.
-    const timedSessions = sessions.filter((s) => (s.duration_sec ?? 0) > 0);
+    // logged without a duration (duration_sec: 0), or with an unrealistically
+    // short one (a mis-tap or quick test log), still counts its oz above but
+    // would contribute almost no time here, inflating the ratio wildly (a
+    // real case: a 24-second test session extrapolated to 226 oz/hr).
+    // Exclude anything under MIN_MEANINGFUL_SESSION_SEC from both sides.
+    const timedSessions = sessions.filter((s) => (s.duration_sec ?? 0) >= MIN_MEANINGFUL_SESSION_SEC);
     const timedOz      = timedSessions.reduce((sum, s) => sum + (s.total_oz ?? 0), 0);
     const timedMinutes = timedSessions.reduce((sum, s) => sum + ((s.duration_sec ?? 0) / 60), 0);
     const efficiency = timedMinutes > 0 ? timedOz / timedMinutes : 0;
