@@ -25,22 +25,21 @@ consistently deliver on it.
       "Output While Pumping." Also dropped the stale "~1 oz/hr" baseline
       caption, which was calibrated to the old, different-scale metric and
       would have read as nonsense next to the new number.
-- [ ] **Insight contradictions across screens — no cross-pattern consistency
-      check.** Katie saw "your output has dropped 25%... triple feeding
-      takes an enormous toll" on one screen and "stay the course, what
-      you're doing is working" on the Supply page, simultaneously. Confirmed
-      her test accounts' `pumping_context` is NOT set to triple_feeding
-      (one is `work_pumping`, one `unspecified`), and `insight_cache` has
-      zero rows for either — so the exact generation path for that specific
-      message wasn't pinned down. Architecturally, though, the risk is real
-      regardless: `lib/patternDetection.ts` runs several independent pattern
-      detectors (declining_output_trend, stay_the_course, etc.), each of
-      which can fire and get AI-elaborated via
-      `supabase/functions/generate-insight` and cached in `insight_cache`
-      independently, with nothing checking whether two simultaneously-shown
-      insights actually agree with each other. Needs either a single
-      insight-selection step that picks one coherent story to tell across
-      the app, or explicit suppression rules between contradictory patterns.
+- [x] **Insight contradictions across screens — no cross-pattern consistency
+      check.** DONE (Aug 1, 2026): root cause was two independent,
+      never-reconciled trend algorithms — the insight engine
+      (`lib/patternDetection.ts`) compared last 3-5 days vs the prior 5-day
+      window at a 10% relative threshold, while the Supply page
+      (`app/(tabs)/snapshot.tsx`) split the last 7 days in half and compared
+      at a flat 0.3oz absolute threshold. They could (and did) disagree —
+      e.g. "output dropped, needs attention" on one screen and "stay the
+      course" on the other, at the same time. Extracted
+      `computeSupplyTrend()` in `lib/patternDetection.ts` as the single
+      shared definition (percentage-based — fairer across different
+      baseline supply levels than a flat oz threshold) and pointed both the
+      pattern-detection engine (declining_output_trend, output_trending_up)
+      and the Supply page's guidance system at it, so they can no longer
+      tell contradictory stories.
 - [ ] **Re-evaluate the session quality score's value.** Katie's read: it
       doesn't give much real insight. Not a pure cosmetic removal though —
       `analysis.efficiency` thresholds (`components/SessionAnalysis.tsx`)
