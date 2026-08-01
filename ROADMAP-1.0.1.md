@@ -11,9 +11,16 @@ Collected from tester + user feedback during the 1.0 launch push (July 30, 2026)
       cycle setting at all. Consider per-pump setting definitions (the
       user_pumps table could carry a settings schema per model), free-text
       entry, or brand presets.
-- [ ] **MomCozy app integration** — client-requested. Investigate whether
-      MomCozy exposes an API or Bluetooth data that could import session
-      data automatically.
+- [ ] **MomCozy app integration** — client-requested. Researched (Aug 2026):
+      no viable path today. Checked MomCozy, Willow, and Elvie's App Store
+      listings directly — none integrate with Apple HealthKit or expose any
+      export/sync capability, and HealthKit's only lactation-related type
+      (`HKCategoryTypeIdentifierLactation`) is a yes/no daily flag with no
+      volume/duration/timestamp fields anyway, so it wouldn't help even if
+      one did write to it. This needs a business-development ask (a real
+      data-sharing partnership with MomCozy) — not an engineering solution
+      on its own. Side note: Willow's own app already has native Apple
+      Watch control, useful competitive context for the Watch item below.
 - [ ] **iOS Live Activities** — lock-screen/Dynamic Island live timer for
       an in-progress pumping session (deferred from 1.0: requires native
       widget extension, new build, review).
