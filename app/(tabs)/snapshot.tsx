@@ -16,6 +16,7 @@ import { COLORS, SERIF, GRADIENTS } from "../../lib/constants";
 import { fmtOz } from "../../lib/formatters";
 import { PumpSession, StashEntry, ViewerAccount } from "../../types";
 import { PremiumTeaser } from "../../components/ui/PremiumTeaser";
+import { computeSupplyTrend } from "../../lib/patternDetection";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -182,19 +183,6 @@ function computeConsistency(
   return scoreLabel(Math.round(Math.max(0, Math.min(100, 100 - cv * 80))));
 }
 
-function computeTrend(sessions: PumpSession[]): "improving" | "stable" | "declining" {
-  if (sessions.length < 4) return "stable";
-  const sorted = [...sessions].sort(
-    (a, b) => new Date(a.started_at).getTime() - new Date(b.started_at).getTime()
-  );
-  const half = Math.floor(sorted.length / 2);
-  const firstAvg  = sorted.slice(0, half).reduce((s, x) => s + (x.total_oz ?? 0), 0) / half;
-  const secondAvg = sorted.slice(half).reduce((s, x) => s + (x.total_oz ?? 0), 0) / (sorted.length - half);
-  const diff = secondAvg - firstAvg;
-  if (diff > 0.3)  return "improving";
-  if (diff < -0.3) return "declining";
-  return "stable";
-}
 
 function computeSupplyStatus(
   rolling24h: number,
@@ -493,7 +481,10 @@ export default function SnapshotScreen() {
         sessions14,
         profile?.created_at ?? new Date().toISOString(),
       );
-      const trend = computeTrend(sessions7);
+      // Shared with the pattern-detection insight engine (lib/patternDetection.ts)
+      // so this screen and the AI-generated insights never disagree about
+      // whether supply is trending up, down, or holding steady.
+      const { trend } = computeSupplyTrend(sessions14);
       const supplyStatus = computeSupplyStatus(rolling24hOz, avg7dayPerDay, trend, consistencyScore);
       const guidanceLevel = computeGuidance(supplyStatus, sessions7.filter((s) => (s.pain_level ?? 0) >= 6).length);
       const stage = getPostpartumStage(profile?.baby_dob ?? null);

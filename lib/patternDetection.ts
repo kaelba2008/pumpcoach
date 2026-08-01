@@ -103,6 +103,62 @@ function sevenDayAvg(sessions: SessionRecord[], endDate: Date): number {
   return average(vals);
 }
 
+// ── Shared supply trend ─────────────────────────────────────────────────────
+// Single source of truth for "is supply trending up, down, or stable" — used
+// by both this pattern engine (declining/improving insights) and the Supply
+// page's guidance system. Before this existed, the two screens ran two
+// independently-built trend algorithms with different windows AND different
+// thresholds (a 3-5-day vs prior-5-day percentage comparison here, a flat
+// 7-day-half-split ±0.3oz absolute comparison on the Supply page), which
+// could — and did — disagree and show a mom contradictory messages at the
+// same time. Percentage-based rather than a flat ounce threshold because a
+// fixed oz difference isn't fair across very different baseline supply
+// levels: 0.3oz is a huge relative swing for a 2oz/session mom and nearly
+// nothing for a 10oz/session mom.
+export interface SupplyTrendResult {
+  trend: "improving" | "stable" | "declining";
+  /** Positive = improving, negative = declining */
+  changePct: number;
+  /** Not enough session history yet to compute a meaningful trend */
+  insufficientData: boolean;
+}
+
+export function computeSupplyTrend(
+  sessions: { started_at: string; total_oz: number | null }[],
+): SupplyTrendResult {
+  const now = new Date();
+  const todayKey = dateKey(now.toISOString());
+  const sorted = [...sessions].sort(
+    (a, b) => new Date(a.started_at).getTime() - new Date(b.started_at).getTime()
+  );
+
+  const last5 = sorted.filter(s => {
+    if (now.getHours() < 18 && dateKey(s.started_at) === todayKey) return false;
+    const d = now.getTime() - new Date(s.started_at).getTime();
+    return d >= 0 && d <= 5 * 24 * 60 * 60 * 1000;
+  });
+  const prior5Start = new Date(now);
+  prior5Start.setDate(prior5Start.getDate() - 10);
+  const prior5End = new Date(now);
+  prior5End.setDate(prior5End.getDate() - 5);
+  const prior5 = sorted.filter(s => {
+    const t = new Date(s.started_at);
+    return t >= prior5Start && t < prior5End;
+  });
+
+  if (last5.length < 3 || prior5.length < 3) {
+    return { trend: "stable", changePct: 0, insufficientData: true };
+  }
+
+  const recentAvg = average(last5.map(s => s.total_oz ?? 0));
+  const priorAvg  = average(prior5.map(s => s.total_oz ?? 0));
+  const changePct = priorAvg > 0 ? ((recentAvg - priorAvg) / priorAvg) * 100 : 0;
+
+  if (changePct <= -10) return { trend: "declining", changePct, insufficientData: false };
+  if (changePct >= 10)  return { trend: "improving", changePct, insufficientData: false };
+  return { trend: "stable", changePct, insufficientData: false };
+}
+
 // ── Main detector ─────────────────────────────────────────────────────────────
 
 export function detectPatterns(
@@ -163,75 +219,42 @@ export function detectPatterns(
   }
 
   // ── Pattern 10: Declining output trend (needs_attention — check early)
+  // Pattern 4: Output trending up (celebratory)
+  // Both driven by the shared computeSupplyTrend() — same window, same
+  // thresholds the Supply page uses, so the two screens never disagree.
   const skipForDecline: PumpingContext[] = ["mostly_nursing", "weaning", "equal_pumping_nursing"];
-  if (
-    !suppressedPatterns.has("declining_output_trend") &&
-    sessions.length >= 14 &&
-    !skipForDecline.includes(pumpingContext)
-  ) {
-    const todayKey = dateKey(now.toISOString());
-    // Compare last 3-5 days vs. 5-day window before that
-    // Before 6pm: exclude today's sessions (incomplete day skews the comparison)
-    const last5 = sorted.filter(s => {
-      if (now.getHours() < 18 && dateKey(s.started_at) === todayKey) return false;
-      const d = now.getTime() - new Date(s.started_at).getTime();
-      return d <= 5 * 24 * 60 * 60 * 1000;
-    });
-    const prior5Start = new Date(now);
-    prior5Start.setDate(prior5Start.getDate() - 10);
-    const prior5End = new Date(now);
-    prior5End.setDate(prior5End.getDate() - 5);
-    const prior5 = sorted.filter(s => {
-      const t = new Date(s.started_at);
-      return t >= prior5Start && t < prior5End;
-    });
+  if (sessions.length >= 14) {
+    const supplyTrend = computeSupplyTrend(sessions);
 
-    if (last5.length >= 3 && prior5.length >= 3) {
-      const recentAvg = average(last5.map(s => s.total_oz));
-      const priorAvg  = average(prior5.map(s => s.total_oz));
-      const dropPct = priorAvg > 0 ? ((priorAvg - recentAvg) / priorAvg) * 100 : 0;
+    if (
+      !suppressedPatterns.has("declining_output_trend") &&
+      !skipForDecline.includes(pumpingContext) &&
+      supplyTrend.trend === "declining"
+    ) {
+      const variant =
+        pumpingContext === "exclusive_pumping"    ? `exclusive_pumping_${stage}` :
+        pumpingContext === "equal_pumping_nursing" ? "equal_pumping_nursing_any" :
+        pumpingContext === "work_pumping"          ? "work_pumping_any" :
+        pumpingContext === "supply_building"       ? "supply_building_any" :
+        pumpingContext === "triple_feeding"        ? "triple_feeding_any" :
+        `exclusive_pumping_${stage}`;
 
-      if (dropPct >= 10) {
-        const variant =
-          pumpingContext === "exclusive_pumping"    ? `exclusive_pumping_${stage}` :
-          pumpingContext === "equal_pumping_nursing" ? "equal_pumping_nursing_any" :
-          pumpingContext === "work_pumping"          ? "work_pumping_any" :
-          pumpingContext === "supply_building"       ? "supply_building_any" :
-          pumpingContext === "triple_feeding"        ? "triple_feeding_any" :
-          `exclusive_pumping_${stage}`;
-
-        detected.push({
-          pattern_name: "declining_output_trend",
-          context_variant: variant,
-          context_data: { drop_pct: Math.round(dropPct) },
-        });
-      }
+      detected.push({
+        pattern_name: "declining_output_trend",
+        context_variant: variant,
+        context_data: { drop_pct: Math.round(Math.abs(supplyTrend.changePct)) },
+      });
     }
-  }
 
-  // ── Pattern 4: Output trending up (celebratory)
-  if (
-    !suppressedPatterns.has("output_trending_up") &&
-    sessions.length >= 14
-  ) {
-    const week1End = new Date(now);
-    const week1Start = new Date(now);
-    week1Start.setDate(week1Start.getDate() - 7);
-    const week2Start = new Date(now);
-    week2Start.setDate(week2Start.getDate() - 14);
-
-    const avgThisWeek = sevenDayAvg(sorted, week1End);
-    const avgLastWeek = sevenDayAvg(sorted, week1Start);
-
-    if (avgLastWeek > 0) {
-      const gainPct = ((avgThisWeek - avgLastWeek) / avgLastWeek) * 100;
-      if (gainPct >= 10) {
-        detected.push({
-          pattern_name: "output_trending_up",
-          context_variant: "general",
-          context_data: { gain_pct: Math.round(gainPct) },
-        });
-      }
+    if (
+      !suppressedPatterns.has("output_trending_up") &&
+      supplyTrend.trend === "improving"
+    ) {
+      detected.push({
+        pattern_name: "output_trending_up",
+        context_variant: "general",
+        context_data: { gain_pct: Math.round(supplyTrend.changePct) },
+      });
     }
   }
 
