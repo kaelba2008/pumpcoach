@@ -17,6 +17,11 @@ Collected from tester + user feedback during the 1.0 launch push (July 30, 2026)
 - [ ] **iOS Live Activities** — lock-screen/Dynamic Island live timer for
       an in-progress pumping session (deferred from 1.0: requires native
       widget extension, new build, review).
+- [ ] **Apple Watch integration** — companion watchOS app/complication for
+      starting, tracking, and ending a session from the wrist, plus a
+      glanceable today's-output complication. Big feature: needs a native
+      watchOS target, a new build, and App Store review — not a JS-only
+      change like most of this list.
 - [ ] **Average split by nursing** — break the daily/weekly averages into
       "with nursing" vs "without nursing" so combo feeders see honest
       numbers.
