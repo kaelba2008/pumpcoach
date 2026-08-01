@@ -1,6 +1,6 @@
 import "../global.css";
 import React, { useEffect } from "react";
-import { Linking } from "react-native";
+import { Linking, Alert } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -34,6 +34,10 @@ import { AppState } from "react-native";
 // Handles magic links, password reset, and email confirmation callbacks.
 async function handleDeepLink(url: string, router: ReturnType<typeof useRouter>) {
   if (!url) return;
+
+  // TEMP diagnostic: confirming the exact deep link shape (implicit fragment
+  // tokens vs a PKCE `?code=` link) so we know which parsing path to fix.
+  Alert.alert("Debug: deep link received", url);
 
   // Fragment-based tokens: pumpcoach://#access_token=...&refresh_token=...&type=recovery
   if (url.includes("access_token")) {
