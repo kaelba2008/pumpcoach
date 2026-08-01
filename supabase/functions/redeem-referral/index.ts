@@ -18,6 +18,12 @@ function json(body: unknown, status = 200) {
   });
 }
 
+// RevenueCat's "duration" enum technically has a "lifetime" value, but its
+// current behavior is inconsistently documented (possibly deprecated). Safer
+// to reuse the same end_time_ms mechanism we know works and just set it far
+// enough out (100 years) that it's functionally permanent.
+const LIFETIME_DAYS = 100 * 365;
+
 async function grantPromoDays(rcUserId: string, days: number): Promise<void> {
   // Use an explicit end_time_ms rather than the "duration" enum so each code
   // can grant an exact number of days (e.g. 14, 60) instead of only the
@@ -69,7 +75,7 @@ serve(async (req) => {
     // ── Path 1: admin promo codes (no referrer) ───────────────────────────────
     const { data: promoRow } = await admin
       .from("promo_codes")
-      .select("code, reward_days, max_uses, use_count, expires_at")
+      .select("code, reward_days, max_uses, use_count, expires_at, is_lifetime")
       .eq("code", normalizedCode)
       .maybeSingle();
 
@@ -100,11 +106,17 @@ serve(async (req) => {
       // Increment use_count
       await admin.from("promo_codes").update({ use_count: promoRow.use_count + 1 }).eq("code", normalizedCode);
 
-      // Grant trial days
-      const days = (promoRow.reward_days as number) ?? 30;
+      // Grant days (or a lifetime-equivalent grant)
+      const isLifetime = promoRow.is_lifetime === true;
+      const days = isLifetime ? LIFETIME_DAYS : (promoRow.reward_days as number) ?? 30;
       const errors: string[] = [];
       await grantPromoDays(newUserId, days).catch((e) => errors.push(e.message));
-      return json({ success: true, trial_days: days, rcErrors: errors.length ? errors : undefined });
+      return json({
+        success: true,
+        trial_days: days,
+        lifetime: isLifetime,
+        rcErrors: errors.length ? errors : undefined,
+      });
     }
 
     // ── Path 2: user referral codes ───────────────────────────────────────────

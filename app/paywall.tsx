@@ -53,6 +53,7 @@ export default function PaywallScreen() {
   const [showRefCode,     setShowRefCode]     = useState(false);
   const [refCode,         setRefCode]         = useState("");
   const [refCodeResult,   setRefCodeResult]   = useState<"idle" | "success" | "invalid" | "already_used">("idle");
+  const [refCodeLifetime, setRefCodeLifetime] = useState(false);
   const [refCodeApplying, setRefCodeApplying] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
   const codeInputRef = useRef<View>(null);
@@ -160,6 +161,7 @@ export default function PaywallScreen() {
       });
       if (data?.trial_days) {
         setRefCodeResult("success");
+        setRefCodeLifetime(data?.lifetime === true);
         // The code already granted premium access server-side (RevenueCat
         // promotional entitlement). The SDK's local cache has no way to know
         // about a grant it didn't originate, so invalidate it first or
@@ -455,7 +457,7 @@ export default function PaywallScreen() {
               {refCodeResult === "success" && (
                 <View style={{ gap: 10 }}>
                   <Text style={{ fontSize: 13, color: "#4CAF82", textAlign: "center", fontFamily: "Nunito_600SemiBold", fontWeight: "600" }}>
-                    Code applied. Enjoy your extended trial.
+                    {refCodeLifetime ? "Code applied. You have lifetime access!" : "Code applied. Enjoy your extended trial."}
                   </Text>
                   <Pressable onPress={() => router.back()}>
                     <View style={{
