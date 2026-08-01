@@ -20,10 +20,11 @@ import { PhaseSettings } from "../../components/PhaseSettings";
 
 const DURATION_PRESETS = [10, 15, 20, 25, 30, 40];
 const LOG_BY_TOTAL_KEY = "log_by_total";
+const LAST_BABY_KEY    = "last_used_baby_name";
 
 export default function LogSessionScreen() {
   const router   = useRouter();
-  const { user, profile, isPremium } = useAuthStore();
+  const { user, profile, babies, isPremium } = useAuthStore();
   const { unit, changeUnit } = useUnit();
 
   const toDisplay = (oz: string) => {
@@ -52,6 +53,7 @@ export default function LogSessionScreen() {
   const [pumpMode,           setPumpMode]           = useState<import("../../types").PumpMode | null>(null);
   const [userPumps,          setUserPumps]          = useState<UserPump[]>([]);
   const [selectedPumpName,   setSelectedPumpName]   = useState<string | null>(null);
+  const [selectedBabyName,   setSelectedBabyName]   = useState<string | null>(null);
 
   // Dual-phase settings
   const [massageDuration,         setMassageDuration]         = useState<string>("");
@@ -92,6 +94,15 @@ export default function LogSessionScreen() {
   useEffect(() => {
     AsyncStorage.setItem(LOG_BY_TOTAL_KEY, logByTotal ? "true" : "false");
   }, [logByTotal]);
+
+  // Pre-select the last-used baby (already loaded in the store — no fresh query needed)
+  useEffect(() => {
+    if (babies.length === 0) return;
+    AsyncStorage.getItem(LAST_BABY_KEY).then((last) => {
+      const match = babies.find((b) => b.name === last);
+      setSelectedBabyName(match ? match.name : babies[0].name);
+    });
+  }, [babies]);
 
   const displayTotal = logByTotal
     ? (parseFloat(totalOzValue) || 0)
@@ -151,6 +162,7 @@ export default function LogSessionScreen() {
       session_type:               "pump",
       pumped_after_nursing:       pumpedAfterNursing,
       pump_name:                  selectedPumpName,
+      baby_name:                  selectedBabyName,
       suction_level:              suctionLevel,
       cycle_speed:                cycleSpeed,
       pump_mode:                  pumpMode,
@@ -166,6 +178,9 @@ export default function LogSessionScreen() {
     if (error) { Alert.alert("Error saving", error.message); return; }
     if (selectedPumpName) {
       AsyncStorage.setItem("last_used_pump_name", selectedPumpName).catch(() => {});
+    }
+    if (selectedBabyName) {
+      AsyncStorage.setItem(LAST_BABY_KEY, selectedBabyName).catch(() => {});
     }
     router.back();
   };
@@ -377,6 +392,46 @@ export default function LogSessionScreen() {
                 maxLength={3}
               />
             </View>
+
+            {/* Baby picker — not gated by isPremium; single-baby households
+                (the majority) are auto-selected silently, no picker shown. */}
+            {babies.length === 0 && (
+              <Pressable
+                onPress={() => router.push("/(tabs)/profile" as any)}
+                style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
+              >
+                <Text style={{ fontSize: 13, color: COLORS.ink3 }}>Which baby is this for?</Text>
+                <Text style={{ fontSize: 13, color: COLORS.primary, fontFamily: "Nunito_600SemiBold", fontWeight: "600" }}>
+                  Add a baby →
+                </Text>
+              </Pressable>
+            )}
+            {babies.length > 1 && (
+              <View>
+                <Text className="text-sm font-sans-semi text-ink-2" style={{ marginBottom: 8 }}>Which baby?</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+                  {babies.map((baby) => {
+                    const selected = selectedBabyName === baby.name;
+                    return (
+                      <Pressable
+                        key={baby.id}
+                        onPress={() => setSelectedBabyName(baby.name)}
+                        style={{
+                          paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20,
+                          borderWidth: 1.5,
+                          backgroundColor: selected ? COLORS.primary : COLORS.muted,
+                          borderColor: selected ? COLORS.primary : COLORS.border,
+                        }}
+                      >
+                        <Text style={{ fontSize: 13, fontFamily: "Nunito_600SemiBold", fontWeight: "600", color: selected ? "#fff" : COLORS.ink2 }}>
+                          {baby.name}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+            )}
 
             {/* Pump picker — premium only */}
             {isPremium && userPumps.length === 0 && (

@@ -34,8 +34,9 @@ export default function OnboardingScreen() {
 
   const [step, setStep] = useState<Step>("privacy");
 
-  const [babyName,       setBabyName]       = useState("");
-  const [babyDob,        setBabyDob]        = useState<Date | null>(null);
+  const [babies,   setBabies]   = useState<{ name: string; dob: Date | null }[]>([]);
+  const [draftName, setDraftName] = useState("");
+  const [draftDob,  setDraftDob]  = useState<Date | null>(null);
   const [pumpingContext, setPumpingContext]  = useState<PumpingContext | null>(null);
   const [hasLc,          setHasLc]          = useState<boolean | null>(null);
   const [lcSelection,    setLcSelection]    = useState<"yes" | "no" | "not_sure" | null>(null);
@@ -52,8 +53,6 @@ export default function OnboardingScreen() {
     setSaving(true);
     const { error } = await supabase.from("profiles").upsert({
       id:                       user.id,
-      baby_name:                babyName.trim() || null,
-      baby_dob:                 babyDob ? format(babyDob, "yyyy-MM-dd") : null,
       pumping_context:          pumpingContext ?? "unspecified",
       has_lactation_consultant: hasLc,
       pump_brand:               pumpBrand.trim() || null,
@@ -62,8 +61,22 @@ export default function OnboardingScreen() {
       daily_goal_oz:            parseFloat(dailyGoal) || null,
       onboarded_at:             new Date().toISOString(),
     });
+    if (error) { setSaving(false); Alert.alert("Error saving profile", error.message); return; }
+
+    if (babies.length > 0) {
+      const { error: babiesError } = await supabase.from("babies").insert(
+        babies.map((b) => ({
+          user_id: user.id,
+          name:    b.name,
+          dob:     b.dob ? format(b.dob, "yyyy-MM-dd") : null,
+        }))
+      );
+      if (babiesError) {
+        Alert.alert("Couldn't save your babies", "You can add them later from your profile.");
+      }
+    }
+
     setSaving(false);
-    if (error) { Alert.alert("Error saving profile", error.message); return; }
     await loadProfile();
 
     // Redeem referral code if entered — show confirmation if successful
@@ -195,26 +208,64 @@ export default function OnboardingScreen() {
                     Tell us about your baby 👶
                   </Text>
                   <Text style={{ fontSize: 14, color: COLORS.ink2, marginTop: 4 }}>
-                    This helps personalize your experience.
+                    This helps personalize your experience. Add more than one for twins, triplets, or an older sibling still nursing.
                   </Text>
                 </View>
-                <View style={{ gap: 16 }}>
+
+                {babies.length > 0 && (
+                  <View style={{ backgroundColor: "#fff", borderRadius: 16, overflow: "hidden", borderWidth: 1, borderColor: COLORS.border }}>
+                    {babies.map((b, idx) => (
+                      <React.Fragment key={idx}>
+                        {idx > 0 && <View style={{ height: 1, backgroundColor: COLORS.border, marginLeft: 16 }} />}
+                        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingVertical: 14 }}>
+                          <View>
+                            <Text style={{ fontSize: 15, fontFamily: "Nunito_600SemiBold", fontWeight: "600", color: COLORS.ink }}>
+                              {b.name}
+                            </Text>
+                            {b.dob && (
+                              <Text style={{ fontSize: 12, color: COLORS.ink3, marginTop: 1 }}>
+                                {format(b.dob, "MMM d, yyyy")}
+                              </Text>
+                            )}
+                          </View>
+                          <Pressable onPress={() => setBabies((prev) => prev.filter((_, i) => i !== idx))} hitSlop={12}>
+                            <Text style={{ fontSize: 18, color: COLORS.ink3 }}>🗑</Text>
+                          </Pressable>
+                        </View>
+                      </React.Fragment>
+                    ))}
+                  </View>
+                )}
+
+                <View style={{ gap: 16, backgroundColor: "#fff", borderRadius: 16, padding: 16, borderWidth: 1, borderColor: COLORS.border }}>
                   <Input
-                    label="Baby's name (optional)"
-                    value={babyName}
-                    onChangeText={setBabyName}
+                    label="Baby's name"
+                    value={draftName}
+                    onChangeText={setDraftName}
                     placeholder="Mila"
                     autoCapitalize="words"
                   />
                   <DatePickerField
                     label="Baby's date of birth (optional)"
-                    value={babyDob}
-                    onChange={setBabyDob}
+                    value={draftDob}
+                    onChange={setDraftDob}
                     mode="date"
                     optional
                     maximumDate={new Date()}
                   />
+                  <Button
+                    label="Add baby"
+                    variant="secondary"
+                    disabled={!draftName.trim() || babies.length >= 6}
+                    onPress={() => {
+                      setBabies((prev) => [...prev, { name: draftName.trim(), dob: draftDob }]);
+                      setDraftName("");
+                      setDraftDob(null);
+                    }}
+                    fullWidth
+                  />
                 </View>
+
                 <Button label="Continue" onPress={() => setStep("context")} fullWidth size="lg" />
                 <Pressable onPress={() => setStep("context")} style={{ alignItems: "center" }}>
                   <Text style={{ fontSize: 13, color: COLORS.ink3 }}>Skip for now</Text>

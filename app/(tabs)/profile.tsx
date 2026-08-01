@@ -22,9 +22,10 @@ import { Card } from "../../components/ui/Card";
 import { Button } from "../../components/ui/Button";
 import { ConsultRecommendation } from "../../components/ConsultRecommendation";
 import { DatePickerField } from "../../components/ui/DatePickerField";
-import { babyAgeLabel } from "../../lib/formatters";
+import { babyAgeLabel, babyAgeWeeks } from "../../lib/formatters";
+import { primaryBaby } from "../../lib/babies";
 import { COLORS, SERIF, PRIVACY_POLICY_URL, TERMS_OF_SERVICE_URL } from "../../lib/constants";
-import { PumpingContext, Invitation, ViewerAccount, UserPump } from "../../types";
+import { PumpingContext, Invitation, ViewerAccount, UserPump, Baby } from "../../types";
 import { useUnit } from "../../hooks/useUnit";
 import { useViewerAccess } from "../../hooks/useViewerAccess";
 import { UnitPref } from "../../lib/units";
@@ -85,7 +86,7 @@ function titleCase(str: string) {
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { user, profile, signOut, isPremium, loadProfile, knownOwnerId, setViewingMode } = useAuthStore();
+  const { user, profile, babies, signOut, isPremium, loadProfile, knownOwnerId, setViewingMode } = useAuthStore();
   const { people: clientsIView } = useViewerAccess();
   const { unit, changeUnit } = useUnit();
   const SKIP_GAP_ALERTS_KEY = "skip_gap_alerts_pref";
@@ -96,8 +97,6 @@ export default function ProfileScreen() {
   const [notifFreq,      setNotifFreq]      = useState<NotifFrequency>("daily");
   const [skipGapAlerts,  setSkipGapAlerts]  = useState(false);
   const [referralUses,  setReferralUses]  = useState(0);
-  const [showDobPicker, setShowDobPicker] = useState(false);
-  const [dobValue,      setDobValue]      = useState<Date>(new Date());
   const [savedBanner,      setSavedBanner]      = useState(false);
   const [avatarUploading,  setAvatarUploading]  = useState(false);
   const [editModal, setEditModal] = useState<{
@@ -120,6 +119,13 @@ export default function ProfileScreen() {
   const [showPumpsModal,   setShowPumpsModal]   = useState(false);
   const [newPumpName,      setNewPumpName]      = useState("");
   const [pumpSaving,       setPumpSaving]       = useState(false);
+
+  const [showBabiesModal,  setShowBabiesModal]  = useState(false);
+  const [babyDraftName,    setBabyDraftName]    = useState("");
+  const [babyDraftDob,     setBabyDraftDob]     = useState<Date | null>(null);
+  const [showBabyDobPicker, setShowBabyDobPicker] = useState(false);
+  const [editingBabyId,    setEditingBabyId]    = useState<string | null>(null);
+  const [babySaving,       setBabySaving]       = useState(false);
 
   useEffect(() => {
     loadReferralCode();
@@ -237,6 +243,57 @@ export default function ProfileScreen() {
     );
   };
 
+  const resetBabyDraft = () => {
+    setEditingBabyId(null);
+    setBabyDraftName("");
+    setBabyDraftDob(null);
+  };
+
+  const startEditBaby = (baby: Baby) => {
+    setEditingBabyId(baby.id);
+    setBabyDraftName(baby.name);
+    // Bare "yyyy-MM-dd" strings parse as UTC midnight, which rolls back a
+    // day once shown in a timezone west of UTC — anchor to local noon.
+    setBabyDraftDob(baby.dob ? new Date(`${baby.dob}T12:00:00`) : null);
+  };
+
+  const handleSaveBaby = async () => {
+    const name = babyDraftName.trim();
+    if (!name || !user) return;
+    if (!editingBabyId && babies.length >= 6) {
+      Alert.alert("Too many babies", "You can save up to 6 babies. Remove one first.");
+      return;
+    }
+    setBabySaving(true);
+    const dob = babyDraftDob ? format(babyDraftDob, "yyyy-MM-dd") : null;
+    const { error } = editingBabyId
+      ? await supabase.from("babies").update({ name, dob }).eq("id", editingBabyId)
+      : await supabase.from("babies").insert({ user_id: user.id, name, dob });
+    setBabySaving(false);
+    if (error) { Alert.alert("Error", error.message); return; }
+    resetBabyDraft();
+    await loadProfile();
+  };
+
+  const handleDeleteBaby = (baby: Baby) => {
+    Alert.alert(
+      `Remove "${baby.name}"?`,
+      "This won't affect past session records.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Remove",
+          style: "destructive",
+          onPress: async () => {
+            await supabase.from("babies").delete().eq("id", baby.id);
+            if (editingBabyId === baby.id) resetBabyDraft();
+            await loadProfile();
+          },
+        },
+      ]
+    );
+  };
+
   const handleCreateInvite = async () => {
     if (!user || !sharingInviteEmail.trim()) return;
     setSharingBusy(true);
@@ -265,7 +322,7 @@ export default function ProfileScreen() {
     }
 
     const ownerName = profile?.display_name ?? "Someone";
-    const babyName = profile?.baby_name;
+    const babyName = primaryBaby(babies)?.name;
     const appStoreUrl = "https://apps.apple.com/app/id6765497176";
 
     const subject = `${ownerName} invited you to view her Pump Coach data`;
@@ -360,10 +417,8 @@ export default function ProfileScreen() {
     if (!val) {
       await cancelEncouragingNotifications();
     } else if (profile?.id) {
-      const babyAgeWeeks = profile.baby_dob
-        ? Math.floor((Date.now() - new Date(profile.baby_dob).getTime()) / (7 * 24 * 3600 * 1000))
-        : 0;
-      scheduleNextEncouragingNotification(profile.id, babyAgeWeeks).catch(() => {});
+      const weeks = babyAgeWeeks(primaryBaby(babies)?.dob ?? null) ?? 0;
+      scheduleNextEncouragingNotification(profile.id, weeks).catch(() => {});
     }
   };
 
@@ -371,11 +426,9 @@ export default function ProfileScreen() {
     setNotifFreq(freq);
     await AsyncStorage.setItem(NOTIF_FREQUENCY_KEY, freq);
     if (notifEnabled && profile?.id) {
-      const babyAgeWeeks = profile.baby_dob
-        ? Math.floor((Date.now() - new Date(profile.baby_dob).getTime()) / (7 * 24 * 3600 * 1000))
-        : 0;
+      const weeks = babyAgeWeeks(primaryBaby(babies)?.dob ?? null) ?? 0;
       await cancelEncouragingNotifications();
-      scheduleNextEncouragingNotification(profile.id, babyAgeWeeks).catch(() => {});
+      scheduleNextEncouragingNotification(profile.id, weeks).catch(() => {});
     }
   };
 
@@ -599,33 +652,6 @@ export default function ProfileScreen() {
     });
   };
 
-  const handleEditBabyName = () => {
-    const current = profile?.baby_name ?? "";
-    setEditModalText(current);
-    setEditModal({
-      title: "Baby's name",
-      value: current,
-      autoCapitalize: "words",
-      onSave: async (text) => {
-        const name = titleCase(text.trim());
-        if (name) await save({ baby_name: name });
-      },
-    });
-  };
-
-  const handleEditBabyDob = () => {
-    // baby_dob is stored as a bare "yyyy-MM-dd" string, which parses as UTC
-    // midnight and rolls back a day once shown in a timezone west of UTC.
-    // Anchor to local noon so the picker opens on the correct day.
-    setDobValue(profile?.baby_dob ? new Date(`${profile.baby_dob}T12:00:00`) : new Date());
-    setShowDobPicker(true);
-  };
-
-  const handleSaveBabyDob = async (date: Date | null) => {
-    if (!date) return;
-    await save({ baby_dob: format(date, "yyyy-MM-dd") });
-  };
-
   const handleEditPumpBrand = () => {
     if (Platform.OS === "ios") {
       ActionSheetIOS.showActionSheetWithOptions(
@@ -747,23 +773,23 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.cream }} edges={["top"]}>
-      {/* Baby DOB picker modal */}
-      <Modal visible={showDobPicker} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowDobPicker(false)}>
+      {/* Baby DOB picker modal — used from within the My Babies modal below */}
+      <Modal visible={showBabyDobPicker} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowBabyDobPicker(false)}>
         <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.cream }} edges={["top", "bottom"]}>
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: COLORS.border }}>
-            <Pressable onPress={() => setShowDobPicker(false)} hitSlop={12}>
+            <Pressable onPress={() => setShowBabyDobPicker(false)} hitSlop={12}>
               <Text style={{ fontSize: 15, color: COLORS.ink3, fontFamily: "Nunito_600SemiBold", fontWeight: "600" }}>Cancel</Text>
             </Pressable>
             <Text style={{ fontFamily: SERIF, fontSize: 18, color: COLORS.ink }}>Baby's date of birth</Text>
-            <Pressable onPress={async () => { await handleSaveBabyDob(dobValue); setShowDobPicker(false); }} hitSlop={12}>
-              <Text style={{ fontSize: 15, color: COLORS.primary, fontFamily: "Nunito_700Bold", fontWeight: "700" }}>Save</Text>
+            <Pressable onPress={() => setShowBabyDobPicker(false)} hitSlop={12}>
+              <Text style={{ fontSize: 15, color: COLORS.primary, fontFamily: "Nunito_700Bold", fontWeight: "700" }}>Done</Text>
             </Pressable>
           </View>
           <View style={{ padding: 20 }}>
             <DatePickerField
               label="Date of birth"
-              value={dobValue}
-              onChange={(d) => d && setDobValue(d)}
+              value={babyDraftDob ?? new Date()}
+              onChange={(d) => setBabyDraftDob(d)}
               mode="date"
               maximumDate={new Date()}
             />
@@ -892,9 +918,9 @@ export default function ProfileScreen() {
                     {tierLabel}
                   </Text>
                 </View>
-                {profile?.baby_name && (
+                {primaryBaby(babies)?.name && (
                   <Text className="text-xs text-ink-3">
-                    · {profile.baby_name} {babyAgeLabel(profile.baby_dob)}
+                    · {primaryBaby(babies)!.name}{babies.length > 1 ? ` +${babies.length - 1} more` : ""} {babyAgeLabel(primaryBaby(babies)!.dob)}
                   </Text>
                 )}
               </View>
@@ -940,9 +966,11 @@ export default function ProfileScreen() {
           <Text className="text-xs font-sans-bold text-ink-3 uppercase tracking-wider mb-2 px-1">Baby & Pump</Text>
           <Card padding="none">
             <View className="px-4">
-              <SettingRow label="Baby's name" value={profile?.baby_name ?? "Not set"} onPress={handleEditBabyName} />
-              <Divider />
-              <SettingRow label="Baby's date of birth" value={profile?.baby_dob ?? "Not set"} onPress={handleEditBabyDob} />
+              <SettingRow
+                label="Babies"
+                value={babies.length === 0 ? "Not set" : babies.map((b) => b.name).join(", ")}
+                onPress={() => { resetBabyDraft(); setShowBabiesModal(true); }}
+              />
               <Divider />
               <SettingRow
                 label="Feeding situation"
@@ -1440,6 +1468,113 @@ export default function ProfileScreen() {
                       : <Text style={{ color: "#fff", fontFamily: "Nunito_700Bold", fontWeight: "700", fontSize: 14 }}>Add pump</Text>
                     }
                   </Pressable>
+                </View>
+              </ScrollView>
+            </KeyboardAvoidingView>
+          </SafeAreaView>
+        </Modal>
+
+        {/* My Babies modal */}
+        <Modal visible={showBabiesModal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => { setShowBabiesModal(false); resetBabyDraft(); }}>
+          <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.cream }}>
+            <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: COLORS.border }}>
+                <Text style={{ fontFamily: SERIF, fontSize: 18, color: COLORS.ink }}>My Babies</Text>
+                <Pressable onPress={() => { setShowBabiesModal(false); resetBabyDraft(); }} hitSlop={12}>
+                  <Text style={{ fontSize: 16, color: COLORS.ink3 }}>✕</Text>
+                </Pressable>
+              </View>
+
+              <ScrollView contentContainerStyle={{ padding: 20, gap: 8 }}>
+                {babies.length === 0 && (
+                  <Text style={{ fontSize: 14, color: COLORS.ink3, textAlign: "center", marginTop: 16 }}>
+                    No babies added yet. Add your first below — twins, triplets, and mixed-age siblings are all supported.
+                  </Text>
+                )}
+
+                {babies.length > 0 && (
+                  <View style={{ backgroundColor: "#fff", borderRadius: 16, overflow: "hidden", borderWidth: 1, borderColor: COLORS.border }}>
+                    {babies.map((baby, idx) => (
+                      <React.Fragment key={baby.id}>
+                        {idx > 0 && <View style={{ height: 1, backgroundColor: COLORS.border, marginLeft: 16 }} />}
+                        <Pressable
+                          onPress={() => startEditBaby(baby)}
+                          style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingVertical: 14 }}
+                        >
+                          <View>
+                            <Text style={{ fontSize: 15, fontFamily: "Nunito_600SemiBold", fontWeight: "600", color: COLORS.ink }}>
+                              {baby.name}
+                            </Text>
+                            {baby.dob && (
+                              <Text style={{ fontSize: 12, color: COLORS.ink3, marginTop: 1 }}>
+                                {babyAgeLabel(baby.dob)}
+                              </Text>
+                            )}
+                          </View>
+                          <Pressable onPress={() => handleDeleteBaby(baby)} hitSlop={12}>
+                            <Text style={{ fontSize: 18, color: COLORS.ink3 }}>🗑</Text>
+                          </Pressable>
+                        </Pressable>
+                      </React.Fragment>
+                    ))}
+                  </View>
+                )}
+
+                {/* Add / edit baby */}
+                <View style={{ marginTop: 16, backgroundColor: "#fff", borderRadius: 16, padding: 16, borderWidth: 1, borderColor: COLORS.border }}>
+                  <Text style={{ fontSize: 13, fontFamily: "Nunito_700Bold", fontWeight: "700", color: COLORS.ink2, marginBottom: 10 }}>
+                    {editingBabyId ? "Edit baby" : "Add a baby"}
+                  </Text>
+                  <TextInput
+                    value={babyDraftName}
+                    onChangeText={setBabyDraftName}
+                    placeholder="Baby's name"
+                    placeholderTextColor={COLORS.ink3}
+                    style={{
+                      borderWidth: 1, borderColor: COLORS.border, borderRadius: 12,
+                      paddingHorizontal: 14, paddingVertical: 10,
+                      fontSize: 14, color: COLORS.ink, fontFamily: "Nunito_400Regular",
+                      backgroundColor: COLORS.cream, marginBottom: 10,
+                    }}
+                    autoCapitalize="words"
+                    returnKeyType="done"
+                  />
+                  <Pressable
+                    onPress={() => setShowBabyDobPicker(true)}
+                    style={{
+                      borderWidth: 1, borderColor: COLORS.border, borderRadius: 12,
+                      paddingHorizontal: 14, paddingVertical: 10,
+                      backgroundColor: COLORS.cream, marginBottom: 12,
+                    }}
+                  >
+                    <Text style={{ fontSize: 14, color: babyDraftDob ? COLORS.ink : COLORS.ink3, fontFamily: "Nunito_400Regular" }}>
+                      {babyDraftDob ? format(babyDraftDob, "MMM d, yyyy") : "Date of birth (optional)"}
+                    </Text>
+                  </Pressable>
+                  <View style={{ flexDirection: "row", gap: 8 }}>
+                    {editingBabyId && (
+                      <Pressable
+                        onPress={resetBabyDraft}
+                        style={{ flex: 1, borderRadius: 12, paddingVertical: 12, alignItems: "center", borderWidth: 1, borderColor: COLORS.border }}
+                      >
+                        <Text style={{ color: COLORS.ink2, fontFamily: "Nunito_700Bold", fontWeight: "700", fontSize: 14 }}>Cancel</Text>
+                      </Pressable>
+                    )}
+                    <Pressable
+                      onPress={handleSaveBaby}
+                      disabled={!babyDraftName.trim() || babySaving}
+                      style={{
+                        flex: 1,
+                        backgroundColor: babyDraftName.trim() ? COLORS.primary : COLORS.muted,
+                        borderRadius: 12, paddingVertical: 12, alignItems: "center",
+                      }}
+                    >
+                      {babySaving
+                        ? <ActivityIndicator size="small" color="#fff" />
+                        : <Text style={{ color: "#fff", fontFamily: "Nunito_700Bold", fontWeight: "700", fontSize: 14 }}>{editingBabyId ? "Save" : "Add baby"}</Text>
+                      }
+                    </Pressable>
+                  </View>
                 </View>
               </ScrollView>
             </KeyboardAvoidingView>

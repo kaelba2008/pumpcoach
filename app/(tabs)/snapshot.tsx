@@ -14,6 +14,7 @@ import { supabase } from "../../lib/supabase";
 import { useAuthStore } from "../../store/authStore";
 import { COLORS, SERIF, GRADIENTS } from "../../lib/constants";
 import { fmtOz } from "../../lib/formatters";
+import { primaryBaby } from "../../lib/babies";
 import { PumpSession, StashEntry, ViewerAccount } from "../../types";
 import { PremiumTeaser } from "../../components/ui/PremiumTeaser";
 import { computeSupplyTrend } from "../../lib/patternDetection";
@@ -424,7 +425,7 @@ function buildReportHTML(d: SupplyIntelligence, parentName: string | null, babyN
 
 export default function SnapshotScreen() {
   const router = useRouter();
-  const { profile, user, isPremium } = useAuthStore();
+  const { profile, babies, user, isPremium } = useAuthStore();
   const [data,            setData]            = useState<SupplyIntelligence | null>(null);
   const [loading,         setLoading]         = useState(true);
   const [exporting,       setExporting]       = useState(false);
@@ -487,7 +488,7 @@ export default function SnapshotScreen() {
       const { trend } = computeSupplyTrend(sessions14);
       const supplyStatus = computeSupplyStatus(rolling24hOz, avg7dayPerDay, trend, consistencyScore);
       const guidanceLevel = computeGuidance(supplyStatus, sessions7.filter((s) => (s.pain_level ?? 0) >= 6).length);
-      const stage = getPostpartumStage(profile?.baby_dob ?? null);
+      const stage = getPostpartumStage(primaryBaby(babies)?.dob ?? null);
 
       setData({
         todayOz,
@@ -527,7 +528,7 @@ export default function SnapshotScreen() {
     const deepLink = `pumpcoach://viewer-invite?token=${inv.token}`;
     const webLink = `https://pumpcoach.app/invite?token=${inv.token}`;
     const ownerName = profile?.display_name ?? "Someone";
-    const babyName  = profile?.baby_name;
+    const babyName  = primaryBaby(babies)?.name;
     const appStoreUrl = "https://apps.apple.com/app/id6765497176";
     const subject = `${ownerName} invited you to view her Pump Coach data`;
     const body = [
@@ -563,7 +564,7 @@ export default function SnapshotScreen() {
     if (!data) return;
     setExporting(true);
     try {
-      const html = buildReportHTML(data, profile?.display_name ?? null, profile?.baby_name ?? null);
+      const html = buildReportHTML(data, profile?.display_name ?? null, primaryBaby(babies)?.name ?? null);
       const { uri } = await Print.printToFileAsync({ html, base64: false });
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(uri, { mimeType: "application/pdf", dialogTitle: "Share your Supply Snapshot" });

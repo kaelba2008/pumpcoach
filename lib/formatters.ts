@@ -30,11 +30,14 @@ export const fmtTimeOfDay = (timeStr: string): string => {
   return format(d, "h:mm a");
 };
 
+export const babyAgeWeeks = (dob: string | null): number | null => {
+  if (!dob) return null;
+  return Math.floor((Date.now() - new Date(dob).getTime()) / (1000 * 60 * 60 * 24 * 7));
+};
+
 export const babyAgeLabel = (dob: string | null): string => {
-  if (!dob) return "";
-  const weeks = Math.floor(
-    (Date.now() - new Date(dob).getTime()) / (1000 * 60 * 60 * 24 * 7)
-  );
+  const weeks = babyAgeWeeks(dob);
+  if (weeks == null) return "";
   if (weeks < 4) return `${weeks}w old`;
   const months = Math.floor(weeks / 4.33);
   if (months < 24) return `${months} month${months === 1 ? "" : "s"} old`;

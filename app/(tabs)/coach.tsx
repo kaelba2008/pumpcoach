@@ -12,7 +12,7 @@ import { RedFlagBanner } from "../../components/ui/RedFlagBanner";
 import { LinearGradient } from "expo-linear-gradient";
 import { SESSION_QUICK_PROMPTS, COLORS, SERIF } from "../../lib/constants";
 import { AiMessage } from "../../types";
-import { fmtRelative } from "../../lib/formatters";
+import { fmtRelative, babyAgeWeeks } from "../../lib/formatters";
 import { ConsultRecommendation } from "../../components/ConsultRecommendation";
 
 const CONSULT_TRIGGER_PHRASES = [
@@ -55,7 +55,7 @@ function sanitizeResponse(text: string): string {
 
 export default function CoachScreen() {
   const router  = useRouter();
-  const { user, profile, isPremium } = useAuthStore();
+  const { user, profile, babies, isPremium } = useAuthStore();
 
   const [messages,       setMessages]       = useState<AiMessage[]>([]);
   const [input,          setInput]          = useState("");
@@ -99,10 +99,14 @@ export default function CoachScreen() {
 
     // Use weeks postpartum instead of exact DOB to minimize PII sent to Claude
     let babyContext: string | null = null;
-    if (profile?.baby_dob) {
-      const dobDate = new Date(profile.baby_dob);
-      const weeksOld = Math.floor((Date.now() - dobDate.getTime()) / (7 * 24 * 60 * 60 * 1000));
-      babyContext = `Baby: ${weeksOld} weeks postpartum`;
+    const weeksOldValues = babies
+      .map((b) => babyAgeWeeks(b.dob))
+      .filter((w): w is number => w != null);
+    if (weeksOldValues.length > 0) {
+      const youngestWeeks = Math.min(...weeksOldValues);
+      babyContext = babies.length > 1
+        ? `Babies: ${babies.length}, youngest ${youngestWeeks} weeks postpartum`
+        : `Baby: ${youngestWeeks} weeks postpartum`;
     }
 
     const lcContext =

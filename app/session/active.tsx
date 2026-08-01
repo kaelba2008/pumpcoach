@@ -16,7 +16,7 @@ import { Input } from "../../components/ui/Input";
 import { PainLevelPicker } from "../../components/ui/PainLevelPicker";
 import { PhaseSettings } from "../../components/PhaseSettings";
 import { SessionInsightSheet } from "../../components/SessionInsightSheet";
-import { fmtMs } from "../../lib/formatters";
+import { fmtMs, babyAgeWeeks } from "../../lib/formatters";
 import { LETDOWN_OPTIONS, COLORS, SERIF } from "../../lib/constants";
 import { PumpSession, UserPump } from "../../types";
 import { maybeRequestRatingForStreak } from "../../lib/ratingPrompt";
@@ -25,6 +25,7 @@ import { ozToMl, mlToOz, formatUnit } from "../../lib/units";
 
 const LOG_BY_TOTAL_KEY    = "log_by_total";
 const LAST_PUMP_KEY       = "last_used_pump_name";
+const LAST_BABY_KEY       = "last_used_baby_name";
 
 interface SavedSession {
   totalOz: number;
@@ -38,7 +39,7 @@ interface SavedSession {
 
 export default function ActiveSessionScreen() {
   const router   = useRouter();
-  const { user, profile, isPremium } = useAuthStore();
+  const { user, profile, babies, isPremium } = useAuthStore();
   const store    = useSessionStore();
   const { unit, changeUnit } = useUnit();
 
@@ -72,6 +73,7 @@ export default function ActiveSessionScreen() {
   const [pumpedAfterNursing,   setPumpedAfterNursing]   = useState<"yes" | "no" | "na" | null>(null);
   const [userPumps,            setUserPumps]            = useState<UserPump[]>([]);
   const [selectedPumpName,     setSelectedPumpName]     = useState<string | null>(null);
+  const [selectedBabyName,     setSelectedBabyName]     = useState<string | null>(null);
   const [massageDuration,       setMassageDuration]       = useState("");
   const [massageSuction,        setMassageSuction]        = useState<number | null>(null);
   const [massageCycle,          setMassageCycle]          = useState<number | null>(null);
@@ -111,6 +113,15 @@ export default function ActiveSessionScreen() {
   useEffect(() => {
     AsyncStorage.setItem(LOG_BY_TOTAL_KEY, logByTotal ? "true" : "false");
   }, [logByTotal]);
+
+  // Pre-select the last-used baby (already loaded in the store — no fresh query needed)
+  useEffect(() => {
+    if (babies.length === 0) return;
+    AsyncStorage.getItem(LAST_BABY_KEY).then((last) => {
+      const match = babies.find((b) => b.name === last);
+      setSelectedBabyName(match ? match.name : babies[0].name);
+    });
+  }, [babies]);
 
   // Start session if not already running
   useEffect(() => {
@@ -202,6 +213,7 @@ export default function ActiveSessionScreen() {
         session_type:         active.session_type,
         pumped_after_nursing: pumpedAfterNursing,
         pump_name:            selectedPumpName,
+        baby_name:            selectedBabyName,
         massage_suction_level:    massageSuction,
         massage_cycle_speed:      massageCycle,
         massage_duration_sec:     massageDuration ? parseInt(massageDuration, 10) * 60 : null,
@@ -223,6 +235,9 @@ export default function ActiveSessionScreen() {
 
       if (selectedPumpName) {
         AsyncStorage.setItem(LAST_PUMP_KEY, selectedPumpName).catch(() => {});
+      }
+      if (selectedBabyName) {
+        AsyncStorage.setItem(LAST_BABY_KEY, selectedBabyName).catch(() => {});
       }
 
       // Fetch recent sessions for avg, session count, and pattern detection
@@ -342,9 +357,7 @@ export default function ActiveSessionScreen() {
         userId={profile?.id ?? ""}
         accountCreatedAt={profile?.created_at ?? new Date().toISOString()}
         babyAgeWeeks={
-          profile?.baby_dob
-            ? (Date.now() - new Date(profile.baby_dob).getTime()) / (1000 * 60 * 60 * 24 * 7)
-            : null
+          babyAgeWeeks(babies.find((b) => b.name === selectedBabyName)?.dob ?? null)
         }
       />
     );
@@ -538,6 +551,51 @@ export default function ActiveSessionScreen() {
               ))}
             </View>
           </View>
+
+          {/* Baby picker — not gated by isPremium, since attribution matters
+              for insight quality for every user, not just a premium
+              comparison feature like the pump picker below. Single-baby
+              households (the overwhelming majority) see no picker at all —
+              they're auto-selected silently by the effect above. */}
+          {babies.length === 0 && (
+            <View className="px-6 mb-4">
+              <Pressable
+                onPress={() => router.push("/(tabs)/profile" as any)}
+                style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
+              >
+                <Text style={{ fontSize: 13, color: COLORS.ink3 }}>Which baby is this for?</Text>
+                <Text style={{ fontSize: 13, color: COLORS.primary, fontFamily: "Nunito_600SemiBold", fontWeight: "600" }}>
+                  Add a baby →
+                </Text>
+              </Pressable>
+            </View>
+          )}
+          {babies.length > 1 && (
+            <View className="px-6 mb-4">
+              <Text className="text-sm font-sans-semi text-ink-2 mb-2">Which baby?</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+                {babies.map((baby) => {
+                  const selected = selectedBabyName === baby.name;
+                  return (
+                    <Pressable
+                      key={baby.id}
+                      onPress={() => setSelectedBabyName(baby.name)}
+                      style={{
+                        paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20,
+                        borderWidth: 1.5,
+                        backgroundColor: selected ? COLORS.primary : COLORS.muted,
+                        borderColor: selected ? COLORS.primary : COLORS.border,
+                      }}
+                    >
+                      <Text style={{ fontSize: 13, fontFamily: "Nunito_600SemiBold", fontWeight: "600", color: selected ? "#fff" : COLORS.ink2 }}>
+                        {baby.name}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          )}
 
           {/* Pump picker — premium only */}
           {isPremium && userPumps.length === 0 && (

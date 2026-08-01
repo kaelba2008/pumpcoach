@@ -13,7 +13,8 @@ import { COLORS, SERIF } from "../../lib/constants";
 import { fmtOz } from "../../lib/formatters";
 import { ViewerDataDisplay } from "../../components/ViewerDataDisplay";
 import { useUnit } from "../../hooks/useUnit";
-import { PumpSession, Profile, ViewerNote } from "../../types";
+import { PumpSession, Profile, ViewerNote, Baby } from "../../types";
+import { primaryBaby } from "../../lib/babies";
 
 function getInitials(name: string | null | undefined): string {
   if (!name) return "?";
@@ -28,6 +29,7 @@ export default function ViewerDashboard() {
   const { unit } = useUnit();
 
   const [ownerProfile, setOwnerProfile] = useState<Profile | null>(null);
+  const [ownerBabies,  setOwnerBabies]  = useState<Baby[]>([]);
   const [sessions,     setSessions]     = useState<PumpSession[]>([]);
   const [stashOz,      setStashOz]      = useState<number>(0);
   const [note,         setNote]         = useState<ViewerNote | null>(null);
@@ -48,8 +50,9 @@ export default function ViewerDashboard() {
     // 90 days of history for viewers (IBCLCs need to see trends)
     const since = subDays(new Date(), 90).toISOString();
 
-    const [profileRes, sessionsRes, stashRes, noteRes] = await Promise.all([
+    const [profileRes, babiesRes, sessionsRes, stashRes, noteRes] = await Promise.all([
       supabase.from("profiles").select("*").eq("id", viewingOwnerId).maybeSingle(),
+      supabase.from("babies").select("*").eq("user_id", viewingOwnerId).order("created_at", { ascending: true }),
       supabase.from("pump_sessions")
         .select("*")
         .eq("user_id", viewingOwnerId)
@@ -68,6 +71,7 @@ export default function ViewerDashboard() {
     ]);
 
     if (profileRes.data) setOwnerProfile(profileRes.data as Profile);
+    setOwnerBabies((babiesRes.data ?? []) as Baby[]);
     if (sessionsRes.data) setSessions(sessionsRes.data as PumpSession[]);
     setNote((noteRes.data as ViewerNote) ?? null);
 
@@ -123,7 +127,7 @@ export default function ViewerDashboard() {
   const todayOz = todaySessions.reduce((sum, s) => sum + (s.total_oz ?? 0), 0);
 
   const initials = getInitials(ownerProfile?.display_name);
-  const babyName = ownerProfile?.baby_name;
+  const babyName = primaryBaby(ownerBabies)?.name;
   const goalOz = ownerProfile?.daily_goal_oz ?? null;
 
   // ── Render ───────────────────────────────────────────────────────────────────

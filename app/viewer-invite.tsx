@@ -46,7 +46,7 @@ export default function ViewerInviteScreen() {
     setStep("loading");
     const { data, error } = await supabase
       .from("invitations")
-      .select("id, owner_id, status, expires_at, profiles!owner_id(display_name, baby_name)")
+      .select("id, owner_id, status, expires_at, profiles!owner_id(display_name)")
       .eq("token", tokenValue.trim())
       .maybeSingle();
 
@@ -56,8 +56,10 @@ export default function ViewerInviteScreen() {
     setInviteId(data.id);
     setOwnerId(data.owner_id);
     const profile = data.profiles as any;
-    const name = profile?.display_name || profile?.baby_name ? `${profile.display_name || ""}${profile.display_name && profile.baby_name ? " (baby " + profile.baby_name + ")" : profile.baby_name ? "baby " + profile.baby_name : ""}` : "someone";
-    setOwnerName(name);
+    // Baby name isn't shown in this pre-acceptance preview — the babies
+    // table's viewer-read RLS policy only grants access once a
+    // viewer_accounts relationship exists, which isn't true yet here.
+    setOwnerName(profile?.display_name || "someone");
 
     if (data.status === "accepted") {
       // Already accepted — expiry doesn't matter, the viewer relationship exists.

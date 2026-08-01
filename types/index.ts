@@ -20,8 +20,6 @@ export interface Profile {
   id: string;
   email: string | null;
   display_name: string | null;
-  baby_name: string | null;
-  baby_dob: string | null;
   pump_brand: string | null;
   pump_model: string | null;
   flange_size_mm: number | null;
@@ -60,6 +58,7 @@ export interface PumpSession {
   pain_level: number | null;
   letdown_quality: LetdownQuality | null;
   pump_name: string | null;
+  baby_name: string | null;
   suction_level: number | null;
   cycle_speed: number | null;
   pump_mode: PumpMode | null;
@@ -77,6 +76,14 @@ export interface UserPump {
   id: string;
   user_id: string;
   name: string;
+  created_at: string;
+}
+
+export interface Baby {
+  id: string;
+  user_id: string;
+  name: string;
+  dob: string | null;
   created_at: string;
 }
 

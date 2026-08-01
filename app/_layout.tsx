@@ -25,6 +25,8 @@ import {
 import { setupNotificationChannel } from "../lib/notifications";
 import { setupEncouragementChannel, onAppForeground } from "../lib/encouragementScheduler";
 import { AppState } from "react-native";
+import { babyAgeWeeks } from "../lib/formatters";
+import { primaryBaby } from "../lib/babies";
 
 // Set Nunito as the default font for all Text components
 (Text as any).defaultProps = (Text as any).defaultProps ?? {};
@@ -135,12 +137,10 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     // and schedule the next one
     const appStateSub = AppState.addEventListener("change", (state) => {
       if (state === "active") {
-        const { profile } = useAuthStore.getState();
+        const { profile, babies } = useAuthStore.getState();
         if (profile?.id) {
-          const babyAgeWeeks = profile.baby_dob
-            ? Math.floor((Date.now() - new Date(profile.baby_dob).getTime()) / (7 * 24 * 3600 * 1000))
-            : 0;
-          onAppForeground(profile.id, babyAgeWeeks).catch(() => {});
+          const weeks = babyAgeWeeks(primaryBaby(babies)?.dob ?? null) ?? 0;
+          onAppForeground(profile.id, weeks).catch(() => {});
         }
       }
     });

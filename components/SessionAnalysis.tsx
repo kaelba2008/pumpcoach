@@ -7,9 +7,29 @@ import { formatUnit } from "../lib/units";
 interface SessionAnalysisProps {
   sessions: PumpSession[];
   unit: "oz" | "ml";
+  /** Number of babies being pumped for — scales the output-quality baseline
+   *  so a twin/multiples mom isn't judged against a singleton's expected
+   *  volume. Defaults to 1 (today's behavior, unchanged) when not passed. */
+  babyCount?: number;
 }
 
-export function SessionAnalysis({ sessions, unit }: SessionAnalysisProps) {
+const RATE_OZ_PER_HOUR = 1.25; // per baby — Katie's (IBCLC) clinical baseline
+
+// Average gap between consecutive sessions (hours) — the "how long since
+// last pump" signal the expected-output baseline scales with. Falls back to
+// a typical 3h gap when there's only one session to work with (mirrors the
+// same fallback in components/ui/EfficiencyScore.tsx's calcEfficiencyScore).
+function avgGapHours(sortedAsc: PumpSession[]): number {
+  if (sortedAsc.length < 2) return 3;
+  const gaps: number[] = [];
+  for (let i = 1; i < sortedAsc.length; i++) {
+    const gapMs = new Date(sortedAsc[i].started_at).getTime() - new Date(sortedAsc[i - 1].started_at).getTime();
+    if (gapMs > 0) gaps.push(gapMs / 3_600_000);
+  }
+  return gaps.length ? gaps.reduce((a, b) => a + b, 0) / gaps.length : 3;
+}
+
+export function SessionAnalysis({ sessions, unit, babyCount = 1 }: SessionAnalysisProps) {
   const analysis = useMemo(() => {
     if (sessions.length === 0) return null;
 
@@ -43,7 +63,14 @@ export function SessionAnalysis({ sessions, unit }: SessionAnalysisProps) {
     const letdownQuality = (goodLetdown / sessions.length) * 100;
 
     // Quality score: 40% output, 25% duration, 20% letdown, 15% pain (inverted)
-    const outputScore = Math.min(100, (avgOz / 4) * 100); // baseline ~4oz
+    // Output baseline is rate-based (oz/hr), not a flat per-session number —
+    // a 4-hour gap should expect more output than a 2-hour gap, and pumping
+    // for multiple babies should expect proportionally more than one.
+    const sortedAsc = [...sessions].sort(
+      (a, b) => new Date(a.started_at).getTime() - new Date(b.started_at).getTime()
+    );
+    const expectedOzPerSession = RATE_OZ_PER_HOUR * avgGapHours(sortedAsc) * Math.max(1, babyCount);
+    const outputScore = Math.min(100, (avgOz / expectedOzPerSession) * 100);
     const durationScore = Math.min(100, (avgDuration / 20) * 100); // baseline ~20min
     const painScore = Math.max(0, 100 - (avgPain * 20)); // lower pain = higher score
     const qualityScore = Math.round(
@@ -90,7 +117,7 @@ export function SessionAnalysis({ sessions, unit }: SessionAnalysisProps) {
       avgOz: Math.round(avgOz * 100) / 100,
       avgDuration: Math.round(avgDuration),
     };
-  }, [sessions]);
+  }, [sessions, babyCount]);
 
   if (!analysis) return null;
 

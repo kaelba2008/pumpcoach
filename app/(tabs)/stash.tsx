@@ -19,6 +19,7 @@ import { Input } from "../../components/ui/Input";
 import { OzInput } from "../../components/ui/OzInput";
 import { DatePickerField } from "../../components/ui/DatePickerField";
 import { fmtOz, fmtDate } from "../../lib/formatters";
+import { primaryBaby } from "../../lib/babies";
 import { STASH_LOCATIONS, MILK_EXPIRY_HOURS, COLORS, SERIF } from "../../lib/constants";
 
 const SCREEN_W = Dimensions.get("window").width;
@@ -602,7 +603,7 @@ function CreateGoalModal({
   existingGoal?: StashGoal;
 }) {
   const isEdit = !!existingGoal;
-  const { user, profile } = useAuthStore();
+  const { user, profile, babies } = useAuthStore();
   const [step,              setStep]             = useState<GoalStep>(isEdit ? "details" : "type");
   const [goalType,          setGoalType]         = useState<StashGoalType | null>(existingGoal?.goal_type ?? null);
   const [goalName,          setGoalName]         = useState(existingGoal?.goal_name ?? "");
@@ -619,7 +620,7 @@ function CreateGoalModal({
   // pump_until_done
   const [milestone,         setMilestone]        = useState<MilestoneMonths | null>(isEdit ? "custom" : null);
   const [localBabyDob,      setLocalBabyDob]     = useState<Date | null>(
-    profile?.baby_dob ? new Date(profile.baby_dob) : null
+    primaryBaby(babies)?.dob ? new Date(`${primaryBaby(babies)!.dob}T12:00:00`) : null
   );
 
   // custom
@@ -632,7 +633,7 @@ function CreateGoalModal({
     setStep("details");
   };
 
-  const effectiveBabyDob = profile?.baby_dob ? new Date(profile.baby_dob) : localBabyDob;
+  const effectiveBabyDob = primaryBaby(babies)?.dob ? new Date(`${primaryBaby(babies)!.dob}T12:00:00`) : localBabyDob;
 
   const hoursNum    = parseFloat(hoursAway) || 0;
   const hintLow     = hoursNum > 0 ? Math.round(hoursNum * 10) / 10 : null;
@@ -951,8 +952,8 @@ function CreateGoalModal({
                   {/* ── Pump Until Done ── */}
                   {goalType === "pump_until_done" && (
                     <>
-                      {/* Baby DOB — only ask if not in profile */}
-                      {!profile?.baby_dob && (
+                      {/* Baby DOB — only ask if not already on file */}
+                      {!primaryBaby(babies)?.dob && (
                         <View>
                           <DatePickerField
                             label="When was baby born?"

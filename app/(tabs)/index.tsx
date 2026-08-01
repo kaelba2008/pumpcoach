@@ -19,7 +19,8 @@ import { PremiumTeaser } from "../../components/ui/PremiumTeaser";
 import { NursingEntryModal } from "../../components/NursingEntryModal";
 import { SessionAnalysis } from "../../components/SessionAnalysis";
 import { DetailedAnalytics } from "../../components/DetailedAnalytics";
-import { fmtOz, babyAgeLabel } from "../../lib/formatters";
+import { fmtOz, babyAgeLabel, babyAgeWeeks } from "../../lib/formatters";
+import { primaryBaby } from "../../lib/babies";
 import { useUnit } from "../../hooks/useUnit";
 import { formatUnit, ozToMl, mlToOz } from "../../lib/units";
 import { COLORS, DAYS_SHORT, SERIF, GRADIENTS } from "../../lib/constants";
@@ -202,7 +203,7 @@ function EditSessionModal({ session, visible, onClose, onSaved }: EditSessionMod
 
 export default function DashboardScreen() {
   const router         = useRouter();
-  const { user, profile, isPremium, trialEndsAt } = useAuthStore();
+  const { user, profile, babies, isPremium, trialEndsAt } = useAuthStore();
   const { active }     = useSessionStore();
   const { unit }       = useUnit();
 
@@ -333,9 +334,8 @@ export default function DashboardScreen() {
   const lastSession    = sessions[0] ?? null;
   const lastSessionAgo = lastSession ? minutesSince(lastSession.started_at) : null;
 
-  const babyAgeWeeks   = profile?.baby_dob
-    ? Math.floor((Date.now() - new Date(profile.baby_dob).getTime()) / (7 * 24 * 3600 * 1000))
-    : null;
+  const baby           = primaryBaby(babies);
+  const babyWeeksOld   = babyAgeWeeks(baby?.dob ?? null);
 
   const greeting = () => {
     const h = new Date().getHours();
@@ -374,9 +374,9 @@ export default function DashboardScreen() {
               <Text style={{ color: "rgba(255,255,255,0.6)", fontSize: 12, fontFamily: "Nunito_600SemiBold", fontWeight: "600", letterSpacing: 0.3 }}>
                 {greeting()}{firstName ? `, ${firstName}` : ""}
               </Text>
-              {profile?.baby_name && (
+              {baby?.name && (
                 <Text style={{ color: "rgba(255,255,255,0.45)", fontSize: 11, marginTop: 2 }}>
-                  {profile.baby_name} · {babyAgeLabel(profile.baby_dob)}
+                  {baby.name}{babies.length > 1 ? ` +${babies.length - 1} more` : ""} · {babyAgeLabel(baby.dob)}
                 </Text>
               )}
             </View>
@@ -497,7 +497,7 @@ export default function DashboardScreen() {
           {/* ── Session Analysis ────────────────────────── */}
           {todaySessions.length > 0 && (
             <View style={{ marginBottom: 16 }}>
-              <SessionAnalysis sessions={todaySessions} unit={unit} />
+              <SessionAnalysis sessions={todaySessions} unit={unit} babyCount={Math.max(1, babies.length)} />
               {isPremium && (
                 <Pressable
                   onPress={() => setShowDetailedAnalytics(true)}
@@ -572,7 +572,7 @@ export default function DashboardScreen() {
                 sessionCount={todaySessions.length}
                 lastSessionAgo={lastSessionAgo}
                 goalOz={goalOz}
-                babyAgeWeeks={babyAgeWeeks}
+                babyAgeWeeks={babyWeeksOld}
                 sessions={sessions as any}
                 pumpingContext={(profile?.pumping_context ?? "unspecified") as any}
                 userId={profile?.id ?? ""}
