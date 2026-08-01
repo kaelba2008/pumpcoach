@@ -32,18 +32,25 @@ import { AppState } from "react-native";
 
 // Parse a deep link URL and hand the tokens to Supabase so auth state fires correctly.
 // Handles magic links, password reset, and email confirmation callbacks.
-async function handleDeepLink(url: string) {
+async function handleDeepLink(url: string, router: ReturnType<typeof useRouter>) {
   if (!url) return;
 
-  // Fragment-based tokens: pumpcoach://#access_token=...&refresh_token=...
+  // Fragment-based tokens: pumpcoach://#access_token=...&refresh_token=...&type=recovery
   if (url.includes("access_token")) {
     const fragment = url.includes("#") ? url.split("#")[1] : url.split("?")[1];
     if (!fragment) return;
     const params       = new URLSearchParams(fragment);
     const accessToken  = params.get("access_token");
     const refreshToken = params.get("refresh_token");
+    const type         = params.get("type");
     if (accessToken && refreshToken) {
       await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+      // setSession() just establishes a session — it doesn't reliably emit
+      // a PASSWORD_RECOVERY auth event on its own, so route explicitly
+      // whenever the link itself says this is a recovery flow.
+      if (type === "recovery") {
+        router.push("/(auth)/reset-password" as any);
+      }
     }
   }
 
@@ -55,6 +62,9 @@ async function handleDeepLink(url: string) {
     const type       = params.get("type") as any;
     if (tokenHash && type) {
       await supabase.auth.verifyOtp({ token_hash: tokenHash, type });
+      if (type === "recovery") {
+        router.push("/(auth)/reset-password" as any);
+      }
     }
   }
 }
@@ -102,7 +112,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
         const token = new URLSearchParams(query).get("token");
         if (token) router.push(`/viewer-invite?token=${token}` as any);
       } else {
-        handleDeepLink(url);
+        handleDeepLink(url, router);
       }
     });
 
@@ -114,7 +124,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
         const token = new URLSearchParams(query).get("token");
         if (token) router.push(`/viewer-invite?token=${token}` as any);
       } else {
-        handleDeepLink(url);
+        handleDeepLink(url, router);
       }
     });
 
