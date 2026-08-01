@@ -16,7 +16,14 @@ export function SessionAnalysis({ sessions, unit }: SessionAnalysisProps) {
     // Efficiency: oz per minute
     const totalOz = sessions.reduce((sum, s) => sum + (s.total_oz ?? 0), 0);
     const totalMinutes = sessions.reduce((sum, s) => sum + ((s.duration_sec ?? 0) / 60), 0);
-    const efficiency = totalMinutes > 0 ? totalOz / totalMinutes : 0;
+    // Efficiency must pair oz with ITS OWN session's duration — a session
+    // logged without a duration (duration_sec: 0) still counts its oz above
+    // but would contribute no time here, inflating the ratio for everyone
+    // else. Exclude undurated sessions from both sides of this one ratio.
+    const timedSessions = sessions.filter((s) => (s.duration_sec ?? 0) > 0);
+    const timedOz      = timedSessions.reduce((sum, s) => sum + (s.total_oz ?? 0), 0);
+    const timedMinutes = timedSessions.reduce((sum, s) => sum + ((s.duration_sec ?? 0) / 60), 0);
+    const efficiency = timedMinutes > 0 ? timedOz / timedMinutes : 0;
 
     // Output per hour: production rate over the last 24h (matches the
     // "typical ~1 oz/hr" guideline, which is daily output ÷ 24).

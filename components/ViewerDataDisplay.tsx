@@ -58,9 +58,14 @@ export function ViewerDataDisplay({ sessions, personInitials, unit }: ViewerData
 
     // Calculate overall metrics
     const totalOz = sessions.reduce((sum, s) => sum + (s.total_oz ?? 0), 0);
-    const totalMinutes = sessions.reduce((sum, s) => sum + ((s.duration_sec ?? 0) / 60), 0);
-    const totalHours = totalMinutes / 60;
-    const efficiencyPerHour = totalHours > 0 ? totalOz / totalHours : 0;
+    // Efficiency must pair each session's oz with ITS OWN duration — manually
+    // logged sessions can have duration_sec: 0 (left blank), and mixing their
+    // oz into this ratio without their (lack of) time wildly inflates oz/hr.
+    // Excluding undurated sessions from both sides keeps the ratio honest.
+    const timedSessions = sessions.filter((s) => (s.duration_sec ?? 0) > 0);
+    const timedOz    = timedSessions.reduce((sum, s) => sum + (s.total_oz ?? 0), 0);
+    const timedHours = timedSessions.reduce((sum, s) => sum + (s.duration_sec ?? 0), 0) / 3600;
+    const efficiencyPerHour = timedHours > 0 ? timedOz / timedHours : 0;
     const avgPerDay = dailyData.length > 0 ? totalOz / dailyData.length : 0;
 
     // Build 7-day (or full range) sparkline data
