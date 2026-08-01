@@ -165,7 +165,7 @@ export function ViewerDataDisplay({ sessions, personInitials, unit }: ViewerData
           </View>
           <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 11, color: COLORS.ink3, marginBottom: 4, fontWeight: "600" }}>
-              Efficiency
+              Output While Pumping
             </Text>
             <Text style={{ fontSize: 18, fontWeight: "700", color: COLORS.primary }}>
               {analysis.efficiencyPerHour} oz/hr

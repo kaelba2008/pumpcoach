@@ -25,13 +25,15 @@ export function SessionAnalysis({ sessions, unit }: SessionAnalysisProps) {
     const timedMinutes = timedSessions.reduce((sum, s) => sum + ((s.duration_sec ?? 0) / 60), 0);
     const efficiency = timedMinutes > 0 ? timedOz / timedMinutes : 0;
 
-    // Output per hour: production rate over the last 24h (matches the
-    // "typical ~1 oz/hr" guideline, which is daily output ÷ 24).
-    const dayAgoMs = Date.now() - 24 * 60 * 60 * 1000;
-    const last24Oz = sessions
-      .filter((s) => new Date(s.started_at).getTime() >= dayAgoMs)
-      .reduce((sum, s) => sum + (s.total_oz ?? 0), 0);
-    const ozPerHour = last24Oz > 0 ? last24Oz / 24 : null;
+    // Output per hour of actual pumping — same definition used on the
+    // viewer dashboard, so this number means the same thing everywhere in
+    // the app instead of two different "oz/hr" metrics disagreeing with
+    // each other. (Previously this divided today's total by a flat 24
+    // hours regardless of time of day or session count, which made it
+    // look artificially low most of the day — not a measure of pumping
+    // performance at all, just how much of the day had elapsed.)
+    const timedHours = timedMinutes / 60;
+    const ozPerHour = timedHours > 0 ? timedOz / timedHours : null;
 
     // Session quality score (0-100)
     const avgOz = totalOz / sessions.length;
@@ -152,11 +154,10 @@ export function SessionAnalysis({ sessions, unit }: SessionAnalysisProps) {
       {/* Efficiency & Trend */}
       <View style={{ flexDirection: "row", gap: 3, marginBottom: 16 }}>
         <View style={{ flex: 1 }}>
-          <Text className="text-xs text-ink-3 font-sans-semi mb-1">Output per Hour</Text>
+          <Text className="text-xs text-ink-3 font-sans-semi mb-1">Output While Pumping</Text>
           <Text className="text-lg font-sans-bold text-ink">
             {analysis.ozPerHour ? `${formatUnit(analysis.ozPerHour, unit)}/hr` : "—"}
           </Text>
-          <Text className="text-xs text-ink-3 mt-0.5">typical: ~1 oz/hr</Text>
         </View>
         <View style={{ flex: 1 }}>
           <Text className="text-xs text-ink-3 font-sans-semi mb-1">Trend (vs prior)</Text>
