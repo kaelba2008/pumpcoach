@@ -123,12 +123,18 @@ export interface SupplyTrendResult {
   insufficientData: boolean;
 }
 
-export function computeSupplyTrend(
-  sessions: { started_at: string; total_oz: number | null }[],
+// Generic version: same window (last 3-5 days vs the prior 5-day window)
+// and same ±10% threshold, but works over any numeric value extracted from
+// each item — not just total_oz. "trend: improving" always means the VALUE
+// went up; for a metric where lower is better (e.g. pain level), the caller
+// is responsible for flipping that interpretation, not this function.
+export function computeValueTrend<T extends { started_at: string }>(
+  items: T[],
+  getValue: (item: T) => number,
 ): SupplyTrendResult {
   const now = new Date();
   const todayKey = dateKey(now.toISOString());
-  const sorted = [...sessions].sort(
+  const sorted = [...items].sort(
     (a, b) => new Date(a.started_at).getTime() - new Date(b.started_at).getTime()
   );
 
@@ -150,13 +156,19 @@ export function computeSupplyTrend(
     return { trend: "stable", changePct: 0, insufficientData: true };
   }
 
-  const recentAvg = average(last5.map(s => s.total_oz ?? 0));
-  const priorAvg  = average(prior5.map(s => s.total_oz ?? 0));
+  const recentAvg = average(last5.map(getValue));
+  const priorAvg  = average(prior5.map(getValue));
   const changePct = priorAvg > 0 ? ((recentAvg - priorAvg) / priorAvg) * 100 : 0;
 
   if (changePct <= -10) return { trend: "declining", changePct, insufficientData: false };
   if (changePct >= 10)  return { trend: "improving", changePct, insufficientData: false };
   return { trend: "stable", changePct, insufficientData: false };
+}
+
+export function computeSupplyTrend(
+  sessions: { started_at: string; total_oz: number | null }[],
+): SupplyTrendResult {
+  return computeValueTrend(sessions, s => s.total_oz ?? 0);
 }
 
 // ── Main detector ─────────────────────────────────────────────────────────────

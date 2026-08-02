@@ -15,10 +15,11 @@ import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
 import { PainLevelPicker } from "../../components/ui/PainLevelPicker";
 import { PhaseSettings } from "../../components/PhaseSettings";
+import { FlangePicker } from "../../components/FlangePicker";
 import { SessionInsightSheet } from "../../components/SessionInsightSheet";
 import { fmtMs, babyAgeWeeks } from "../../lib/formatters";
 import { LETDOWN_OPTIONS, COLORS, SERIF } from "../../lib/constants";
-import { PumpSession, UserPump } from "../../types";
+import { PumpSession, UserPump, FlangeShape, FlangeMaterial } from "../../types";
 import { maybeRequestRatingForStreak } from "../../lib/ratingPrompt";
 import { useUnit } from "../../hooks/useUnit";
 import { ozToMl, mlToOz, formatUnit } from "../../lib/units";
@@ -26,6 +27,8 @@ import { ozToMl, mlToOz, formatUnit } from "../../lib/units";
 const LOG_BY_TOTAL_KEY    = "log_by_total";
 const LAST_PUMP_KEY       = "last_used_pump_name";
 const LAST_BABY_KEY       = "last_used_baby_name";
+const LAST_FLANGE_SHAPE_KEY    = "last_used_flange_shape";
+const LAST_FLANGE_MATERIAL_KEY = "last_used_flange_material";
 
 interface SavedSession {
   totalOz: number;
@@ -74,6 +77,9 @@ export default function ActiveSessionScreen() {
   const [userPumps,            setUserPumps]            = useState<UserPump[]>([]);
   const [selectedPumpName,     setSelectedPumpName]     = useState<string | null>(null);
   const [selectedBabyName,     setSelectedBabyName]     = useState<string | null>(null);
+  const [flangeSizeMm,         setFlangeSizeMm]         = useState<number | null>(null);
+  const [flangeShape,          setFlangeShape]          = useState<FlangeShape | null>(null);
+  const [flangeMaterial,       setFlangeMaterial]       = useState<FlangeMaterial | null>(null);
   const [massageDuration,       setMassageDuration]       = useState("");
   const [massageSuction,        setMassageSuction]        = useState<number | null>(null);
   const [massageCycle,          setMassageCycle]          = useState<number | null>(null);
@@ -122,6 +128,14 @@ export default function ActiveSessionScreen() {
       setSelectedBabyName(match ? match.name : babies[0].name);
     });
   }, [babies]);
+
+  // Flange defaults: size from the profile default, shape/material from
+  // whatever was last picked (no profile equivalent for those exists).
+  useEffect(() => {
+    if (profile?.flange_size_mm) setFlangeSizeMm(profile.flange_size_mm);
+    AsyncStorage.getItem(LAST_FLANGE_SHAPE_KEY).then((v) => { if (v) setFlangeShape(v as FlangeShape); });
+    AsyncStorage.getItem(LAST_FLANGE_MATERIAL_KEY).then((v) => { if (v) setFlangeMaterial(v as FlangeMaterial); });
+  }, [profile?.flange_size_mm]);
 
   // Start session if not already running
   useEffect(() => {
@@ -214,6 +228,9 @@ export default function ActiveSessionScreen() {
         pumped_after_nursing: pumpedAfterNursing,
         pump_name:            selectedPumpName,
         baby_name:            selectedBabyName,
+        flange_size_mm:       flangeSizeMm,
+        flange_shape:         flangeShape,
+        flange_material:      flangeMaterial,
         massage_suction_level:    massageSuction,
         massage_cycle_speed:      massageCycle,
         massage_duration_sec:     massageDuration ? parseInt(massageDuration, 10) * 60 : null,
@@ -238,6 +255,12 @@ export default function ActiveSessionScreen() {
       }
       if (selectedBabyName) {
         AsyncStorage.setItem(LAST_BABY_KEY, selectedBabyName).catch(() => {});
+      }
+      if (flangeShape) {
+        AsyncStorage.setItem(LAST_FLANGE_SHAPE_KEY, flangeShape).catch(() => {});
+      }
+      if (flangeMaterial) {
+        AsyncStorage.setItem(LAST_FLANGE_MATERIAL_KEY, flangeMaterial).catch(() => {});
       }
 
       // Fetch recent sessions for avg, session count, and pattern detection
@@ -637,6 +660,17 @@ export default function ActiveSessionScreen() {
               </ScrollView>
             </View>
           )}
+
+          <View className="px-6">
+            <FlangePicker
+              sizeMm={flangeSizeMm}
+              shape={flangeShape}
+              material={flangeMaterial}
+              onSizeChange={setFlangeSizeMm}
+              onShapeChange={setFlangeShape}
+              onMaterialChange={setFlangeMaterial}
+            />
+          </View>
 
           {/* Phase Settings — Massage and Expression */}
           <View className="px-6 mb-4 gap-4">

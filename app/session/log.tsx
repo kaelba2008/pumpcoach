@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import {
   View, Text, ScrollView, Pressable, Alert, KeyboardAvoidingView, Platform,
 } from "react-native";
-import { UserPump } from "../../types";
+import { UserPump, FlangeShape, FlangeMaterial } from "../../types";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -17,10 +17,13 @@ import { PainLevelPicker } from "../../components/ui/PainLevelPicker";
 import { useUnit } from "../../hooks/useUnit";
 import { ozToMl, mlToOz, formatUnit } from "../../lib/units";
 import { PhaseSettings } from "../../components/PhaseSettings";
+import { FlangePicker } from "../../components/FlangePicker";
 
 const DURATION_PRESETS = [10, 15, 20, 25, 30, 40];
 const LOG_BY_TOTAL_KEY = "log_by_total";
 const LAST_BABY_KEY    = "last_used_baby_name";
+const LAST_FLANGE_SHAPE_KEY    = "last_used_flange_shape";
+const LAST_FLANGE_MATERIAL_KEY = "last_used_flange_material";
 
 export default function LogSessionScreen() {
   const router   = useRouter();
@@ -54,6 +57,9 @@ export default function LogSessionScreen() {
   const [userPumps,          setUserPumps]          = useState<UserPump[]>([]);
   const [selectedPumpName,   setSelectedPumpName]   = useState<string | null>(null);
   const [selectedBabyName,   setSelectedBabyName]   = useState<string | null>(null);
+  const [flangeSizeMm,       setFlangeSizeMm]       = useState<number | null>(null);
+  const [flangeShape,        setFlangeShape]        = useState<FlangeShape | null>(null);
+  const [flangeMaterial,     setFlangeMaterial]     = useState<FlangeMaterial | null>(null);
 
   // Dual-phase settings
   const [massageDuration,         setMassageDuration]         = useState<string>("");
@@ -103,6 +109,14 @@ export default function LogSessionScreen() {
       setSelectedBabyName(match ? match.name : babies[0].name);
     });
   }, [babies]);
+
+  // Flange defaults: size from the profile default, shape/material from
+  // whatever was last picked (no profile equivalent for those exists).
+  useEffect(() => {
+    if (profile?.flange_size_mm) setFlangeSizeMm(profile.flange_size_mm);
+    AsyncStorage.getItem(LAST_FLANGE_SHAPE_KEY).then((v) => { if (v) setFlangeShape(v as FlangeShape); });
+    AsyncStorage.getItem(LAST_FLANGE_MATERIAL_KEY).then((v) => { if (v) setFlangeMaterial(v as FlangeMaterial); });
+  }, [profile?.flange_size_mm]);
 
   const displayTotal = logByTotal
     ? (parseFloat(totalOzValue) || 0)
@@ -163,6 +177,9 @@ export default function LogSessionScreen() {
       pumped_after_nursing:       pumpedAfterNursing,
       pump_name:                  selectedPumpName,
       baby_name:                  selectedBabyName,
+      flange_size_mm:             flangeSizeMm,
+      flange_shape:               flangeShape,
+      flange_material:            flangeMaterial,
       suction_level:              suctionLevel,
       cycle_speed:                cycleSpeed,
       pump_mode:                  pumpMode,
@@ -181,6 +198,12 @@ export default function LogSessionScreen() {
     }
     if (selectedBabyName) {
       AsyncStorage.setItem(LAST_BABY_KEY, selectedBabyName).catch(() => {});
+    }
+    if (flangeShape) {
+      AsyncStorage.setItem(LAST_FLANGE_SHAPE_KEY, flangeShape).catch(() => {});
+    }
+    if (flangeMaterial) {
+      AsyncStorage.setItem(LAST_FLANGE_MATERIAL_KEY, flangeMaterial).catch(() => {});
     }
     router.back();
   };
@@ -323,6 +346,15 @@ export default function LogSessionScreen() {
                 autoCapitalize="none"
               />
             </View>
+
+            <FlangePicker
+              sizeMm={flangeSizeMm}
+              shape={flangeShape}
+              material={flangeMaterial}
+              onSizeChange={setFlangeSizeMm}
+              onShapeChange={setFlangeShape}
+              onMaterialChange={setFlangeMaterial}
+            />
 
             {/* Phase Selection — independent toggles */}
             <View>

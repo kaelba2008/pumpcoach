@@ -15,6 +15,8 @@ export type ReminderMode = "standard" | "workday" | "overnight" | "travel";
 export type LetdownQuality = "strong" | "normal" | "slow" | "none";
 export type PumpMode = "massage" | "expression" | "combo";
 export type RedFlagType = "pain" | "fever" | "mastitis" | "supply_concern" | "infant_concern" | "dehydration";
+export type FlangeShape = "traditional" | "crater" | "pano" | "tapered" | "saucer";
+export type FlangeMaterial = "plastic" | "silicone";
 
 export interface Profile {
   id: string;
@@ -59,6 +61,9 @@ export interface PumpSession {
   letdown_quality: LetdownQuality | null;
   pump_name: string | null;
   baby_name: string | null;
+  flange_size_mm: number | null;
+  flange_shape: FlangeShape | null;
+  flange_material: FlangeMaterial | null;
   suction_level: number | null;
   cycle_speed: number | null;
   pump_mode: PumpMode | null;

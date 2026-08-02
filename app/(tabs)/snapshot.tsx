@@ -17,7 +17,7 @@ import { fmtOz } from "../../lib/formatters";
 import { primaryBaby } from "../../lib/babies";
 import { PumpSession, StashEntry, ViewerAccount } from "../../types";
 import { PremiumTeaser } from "../../components/ui/PremiumTeaser";
-import { computeSupplyTrend } from "../../lib/patternDetection";
+import { computeSupplyTrend, computeValueTrend } from "../../lib/patternDetection";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -46,9 +46,63 @@ interface SupplyIntelligence {
   supplyStatus: SupplyStatus;
   guidanceLevel: GuidanceLevel;
   painSessions: number;
+  /** Visible trend, not just the old >40%-of-sessions hidden threshold —
+   *  "improving" means comfort is getting better (pain level trending down). */
+  painTrend: "improving" | "stable" | "worsening" | null;
   stashOz: number;
   goalOz: number | null;
   stage: PostpartumStage | null;
+  flangeChange: FlangeChangeInsight | null;
+}
+
+interface FlangeChangeInsight {
+  fromSizeMm: number;
+  toSizeMm: number;
+  changedAt: Date;
+  avgOzBefore: number;
+  avgOzAfter: number;
+  pctChange: number;
+}
+
+// ─── Flange change → output correlation ────────────────────────────────────────
+// Only meaningful going forward from when per-session flange tracking shipped —
+// there's no historical record of what flange was used before that, so this
+// can only detect changes made after a mom starts logging it (via the profile
+// default or the in-session FlangePicker override).
+function detectFlangeChange(sessions: { started_at: string; total_oz: number | null; flange_size_mm: number | null }[]): FlangeChangeInsight | null {
+  const withFlange = sessions
+    .filter((s) => s.flange_size_mm != null)
+    .sort((a, b) => new Date(a.started_at).getTime() - new Date(b.started_at).getTime());
+  if (withFlange.length < 6) return null;
+
+  // Group into contiguous runs of the same flange size
+  const runs: { sizeMm: number; sessions: typeof withFlange }[] = [];
+  for (const s of withFlange) {
+    const last = runs[runs.length - 1];
+    if (last && last.sizeMm === s.flange_size_mm) {
+      last.sessions.push(s);
+    } else {
+      runs.push({ sizeMm: s.flange_size_mm as number, sessions: [s] });
+    }
+  }
+  if (runs.length < 2) return null; // no change ever recorded
+
+  const afterRun = runs[runs.length - 1];
+  const beforeRun = runs[runs.length - 2];
+  // Enough sample on both sides that this isn't reacting to normal noise
+  if (afterRun.sessions.length < 3 || beforeRun.sessions.length < 3) return null;
+
+  const avg = (arr: typeof withFlange) => arr.reduce((s, x) => s + (x.total_oz ?? 0), 0) / arr.length;
+  const avgOzBefore = avg(beforeRun.sessions);
+  const avgOzAfter = avg(afterRun.sessions);
+  const pctChange = avgOzBefore > 0 ? ((avgOzAfter - avgOzBefore) / avgOzBefore) * 100 : 0;
+
+  return {
+    fromSizeMm: beforeRun.sizeMm,
+    toSizeMm: afterRun.sizeMm,
+    changedAt: new Date(afterRun.sessions[0].started_at),
+    avgOzBefore, avgOzAfter, pctChange,
+  };
 }
 
 // ─── Postpartum stage logic ───────────────────────────────────────────────────
@@ -448,11 +502,17 @@ export default function SnapshotScreen() {
       const since24 = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
       const todayStart = startOfDay(new Date()).toISOString();
 
-      const [sessionRes, stashRes, pumpsRes, viewersRes] = await Promise.all([
+      // Flange-change detection needs more history than the 14-day window
+      // used for everything else — a mom might not have switched flanges
+      // recently, so this looks back 90 days on its own.
+      const since90 = subDays(new Date(), 90).toISOString();
+
+      const [sessionRes, stashRes, pumpsRes, viewersRes, flangeSessionsRes] = await Promise.all([
         supabase.from("pump_sessions").select("*").gte("started_at", since14).order("started_at", { ascending: false }),
         supabase.from("stash_entries").select("oz").is("used_at", null).is("discarded_at", null),
         supabase.from("user_pumps").select("id").eq("user_id", user.id),
         supabase.from("viewer_accounts").select("*").eq("owner_id", user.id),
+        supabase.from("pump_sessions").select("started_at, total_oz, flange_size_mm").gte("started_at", since90).not("flange_size_mm", "is", null),
       ]);
       setPumpCount((pumpsRes.data ?? []).length);
       const viewerList = (viewersRes.data ?? []) as ViewerAccount[];
@@ -489,6 +549,18 @@ export default function SnapshotScreen() {
       const supplyStatus = computeSupplyStatus(rolling24hOz, avg7dayPerDay, trend, consistencyScore);
       const guidanceLevel = computeGuidance(supplyStatus, sessions7.filter((s) => (s.pain_level ?? 0) >= 6).length);
       const stage = getPostpartumStage(primaryBaby(babies)?.dob ?? null);
+      const flangeChange = detectFlangeChange(flangeSessionsRes.data ?? []);
+
+      // Pain trend — same shared window/threshold logic as the supply trend,
+      // just over pain_level instead of total_oz. Only sessions with an
+      // actually-logged pain level count; a missing value isn't "no pain."
+      const painLoggedSessions = sessions14.filter((s) => s.pain_level != null);
+      const rawPainTrend = computeValueTrend(painLoggedSessions, (s) => s.pain_level ?? 0);
+      const painTrend: SupplyIntelligence["painTrend"] = rawPainTrend.insufficientData
+        ? null
+        : rawPainTrend.trend === "improving" ? "worsening"   // pain level went UP
+        : rawPainTrend.trend === "declining" ? "improving"   // pain level went DOWN
+        : "stable";
 
       setData({
         todayOz,
@@ -504,9 +576,11 @@ export default function SnapshotScreen() {
         supplyStatus,
         guidanceLevel,
         painSessions: sessions7.filter((s) => (s.pain_level ?? 0) >= 6).length,
+        painTrend,
         stashOz,
         goalOz: profile?.daily_goal_oz ?? null,
         stage,
+        flangeChange,
       });
     } catch {
       // Silently fail — empty state handles the no-data case
@@ -768,6 +842,23 @@ export default function SnapshotScreen() {
                         </Text>
                       </View>
 
+                      {data.painTrend && (
+                        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                          <Text style={{ fontSize: 13, color: COLORS.ink2 }}>Comfort trend</Text>
+                          <Pressable
+                            onPress={() => data.painTrend === "worsening" && router.push("/tools/flange")}
+                            style={{ flexDirection: "row", alignItems: "center", gap: 4 }}
+                          >
+                            <Text style={{ fontSize: 13, fontFamily: "Nunito_700Bold", fontWeight: "700", color: data.painTrend === "improving" ? COLORS.sage : data.painTrend === "worsening" ? COLORS.error : COLORS.mauve }}>
+                              {data.painTrend === "improving" ? "↑ Improving" : data.painTrend === "worsening" ? "↓ Worsening" : "→ Stable"}
+                            </Text>
+                            {data.painTrend === "worsening" && (
+                              <Text style={{ fontSize: 12, color: COLORS.primary }}>Check fit →</Text>
+                            )}
+                          </Pressable>
+                        </View>
+                      )}
+
                       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
                         <Text style={{ fontSize: 13, color: COLORS.ink2 }}>Consistency</Text>
                         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
@@ -822,6 +913,28 @@ export default function SnapshotScreen() {
                       </View>
                       <Text style={{ fontSize: 16, color: COLORS.primary }}>→</Text>
                     </Pressable>
+                  )}
+
+                  {/* Flange change → output correlation — a real "we noticed
+                      this changed and here's what happened" moment, not just
+                      another number. Only appears once there's an actual
+                      detected change with enough sample on both sides. */}
+                  {data.flangeChange && (
+                    <View style={{
+                      borderRadius: 16, padding: 16,
+                      backgroundColor: data.flangeChange.pctChange >= 0 ? "#F0FAF0" : "#FDF5EE",
+                      borderWidth: 1, borderColor: data.flangeChange.pctChange >= 0 ? "#C8E6CB" : "#F0DECA",
+                    }}>
+                      <Text style={{ fontSize: 13, fontFamily: "Nunito_700Bold", fontWeight: "700", color: COLORS.ink, marginBottom: 4 }}>
+                        🔬 Flange change noticed
+                      </Text>
+                      <Text style={{ fontSize: 13, color: COLORS.ink2, lineHeight: 19 }}>
+                        Since switching from {data.flangeChange.fromSizeMm}mm to {data.flangeChange.toSizeMm}mm
+                        on {format(data.flangeChange.changedAt, "MMM d")}, your average output has gone from{" "}
+                        {fmtOz(data.flangeChange.avgOzBefore)} to {fmtOz(data.flangeChange.avgOzAfter)}
+                        {" "}({data.flangeChange.pctChange >= 0 ? "+" : ""}{Math.round(data.flangeChange.pctChange)}%).
+                      </Text>
+                    </View>
                   )}
 
                   {/* ── Guidance ── */}
