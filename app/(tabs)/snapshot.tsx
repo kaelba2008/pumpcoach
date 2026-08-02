@@ -729,6 +729,34 @@ export default function SnapshotScreen() {
                     </Text>
                   </View>
 
+                  {!profile?.track_hydration && (
+                    <Pressable
+                      onPress={async () => {
+                        if (!user) return;
+                        await supabase.from("profiles").update({ track_hydration: true }).eq("id", user.id);
+                        loadData();
+                      }}
+                      style={{
+                        flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+                        backgroundColor: COLORS.primaryMist, borderRadius: 16, padding: 16,
+                        borderWidth: 1, borderColor: "#CBDBE0",
+                      }}
+                    >
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                        <Text style={{ fontSize: 22 }}>💧</Text>
+                        <View>
+                          <Text style={{ fontSize: 13, fontFamily: "Nunito_700Bold", fontWeight: "700", color: COLORS.primary }}>
+                            Track your hydration
+                          </Text>
+                          <Text style={{ fontSize: 12, color: COLORS.ink3, marginTop: 1 }}>
+                            See how water intake tracks with your output
+                          </Text>
+                        </View>
+                      </View>
+                      <Text style={{ fontSize: 16, color: COLORS.primary }}>→</Text>
+                    </Pressable>
+                  )}
+
                   {/* ── Trend + consistency ── */}
                   <Card>
                     <SectionLabel>7-day patterns</SectionLabel>
@@ -769,6 +797,32 @@ export default function SnapshotScreen() {
                       )}
                     </View>
                   </Card>
+
+                  {/* Pump comparison entry point — placed near the top so it's
+                      actually seen, not buried below sharing/export options. */}
+                  {pumpCount >= 2 && (
+                    <Pressable
+                      onPress={() => router.push("/tools/pump-compare" as any)}
+                      style={{
+                        flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+                        backgroundColor: COLORS.primaryMist, borderRadius: 16, padding: 16,
+                        borderWidth: 1, borderColor: "#CBDBE0",
+                      }}
+                    >
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                        <Text style={{ fontSize: 22 }}>📊</Text>
+                        <View>
+                          <Text style={{ fontSize: 13, fontFamily: "Nunito_700Bold", fontWeight: "700", color: COLORS.primary }}>
+                            Compare your pumps
+                          </Text>
+                          <Text style={{ fontSize: 12, color: COLORS.ink3, marginTop: 1 }}>
+                            See which pump gives you the most output
+                          </Text>
+                        </View>
+                      </View>
+                      <Text style={{ fontSize: 16, color: COLORS.primary }}>→</Text>
+                    </Pressable>
+                  )}
 
                   {/* ── Guidance ── */}
                   <View style={{
@@ -945,31 +999,6 @@ export default function SnapshotScreen() {
                       </Pressable>
                     </View>
                   </View>
-
-                  {/* Pump comparison entry point */}
-                  {pumpCount >= 2 && (
-                    <Pressable
-                      onPress={() => router.push("/tools/pump-compare" as any)}
-                      style={{
-                        flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-                        backgroundColor: COLORS.primaryMist, borderRadius: 16, padding: 16,
-                        borderWidth: 1, borderColor: "#CBDBE0",
-                      }}
-                    >
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-                        <Text style={{ fontSize: 22 }}>📊</Text>
-                        <View>
-                          <Text style={{ fontSize: 13, fontFamily: "Nunito_700Bold", fontWeight: "700", color: COLORS.primary }}>
-                            Compare your pumps
-                          </Text>
-                          <Text style={{ fontSize: 12, color: COLORS.ink3, marginTop: 1 }}>
-                            See which pump gives you the most output
-                          </Text>
-                        </View>
-                      </View>
-                      <Text style={{ fontSize: 16, color: COLORS.primary }}>→</Text>
-                    </Pressable>
-                  )}
 
                   <Text style={{ fontSize: 11, color: COLORS.ink3, textAlign: "center", lineHeight: 17 }}>
                     Pump Coach by Katie Clark, IBCLC · thebreastfeedingmama.com{"\n"}

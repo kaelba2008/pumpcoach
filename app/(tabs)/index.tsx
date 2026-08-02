@@ -217,7 +217,6 @@ export default function DashboardScreen() {
   const [skipGapAlerts,      setSkipGapAlerts]      = useState(false);
   const [hydrationGlasses,   setHydrationGlasses]   = useState(0);
   const [weeklyHydration,    setWeeklyHydration]    = useState<number[]>([]);
-  const [userPumpCount,      setUserPumpCount]      = useState(0);
 
   // Fix 4: expanded session id for notes
   const [expandedSessionId, setExpandedSessionId] = useState<string | null>(null);
@@ -248,7 +247,7 @@ export default function DashboardScreen() {
     const sessionQueryUserId = user.id;
     const sessionSinceDate = since;
 
-    const [sessionRes, stashRes, nursingRes, lifetimeRes, pumpCountRes] = await Promise.all([
+    const [sessionRes, stashRes, nursingRes, lifetimeRes] = await Promise.all([
       supabase
         .from("pump_sessions")
         .select("*")
@@ -269,15 +268,10 @@ export default function DashboardScreen() {
         .from("pump_sessions")
         .select("total_oz")
         .eq("user_id", sessionQueryUserId),
-      supabase
-        .from("user_pumps")
-        .select("id", { count: "exact", head: true })
-        .eq("user_id", user.id),
     ]);
     if (sessionRes.data) setSessions(sessionRes.data as PumpSession[]);
     if (stashRes.data)   setStashOz((stashRes.data as StashEntry[]).reduce((s, e) => s + (e.oz ?? 0), 0));
     if (nursingRes.data) setNursingSessions(nursingRes.data as NursingSession[]);
-    setUserPumpCount(pumpCountRes.count ?? 0);
 
     // Milestone checks — fire async, don't block UI
     const { profile: p } = useAuthStore.getState();
@@ -514,16 +508,6 @@ export default function DashboardScreen() {
                   </Text>
                 </Pressable>
               )}
-              {isPremium && userPumpCount >= 2 && (
-                <Pressable
-                  onPress={() => router.push("/tools/pump-compare" as any)}
-                  style={{ marginTop: 4, paddingHorizontal: 6, paddingVertical: 4 }}
-                >
-                  <Text style={{ fontSize: 12, color: COLORS.primary, fontFamily: "Nunito_600SemiBold", fontWeight: "600" }}>
-                    📊 See which pump works best for you →
-                  </Text>
-                </Pressable>
-              )}
             </View>
           )}
 
@@ -651,21 +635,6 @@ export default function DashboardScreen() {
                 </View>
               )}
             </View>
-            {!profile?.track_hydration && (
-              <Pressable
-                onPress={async () => {
-                  if (!user) return;
-                  await supabase.from("profiles").update({ track_hydration: true }).eq("id", user.id);
-                  loadData();
-                }}
-                style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 10 }}
-              >
-                <Text style={{ fontSize: 12, color: COLORS.ink3 }}>💧 See how hydration affects your output —</Text>
-                <Text style={{ fontSize: 12, color: COLORS.primary, fontFamily: "Nunito_600SemiBold", fontWeight: "600" }}>
-                  turn on tracking
-                </Text>
-              </Pressable>
-            )}
           </View>
 
           {/* ── Stats row ───────────────────────────────── */}
