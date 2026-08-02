@@ -58,19 +58,18 @@ export function ViewerDataDisplay({ sessions, personInitials, unit }: ViewerData
 
     // Calculate overall metrics
     const totalOz = sessions.reduce((sum, s) => sum + (s.total_oz ?? 0), 0);
-    // Displayed as "oz per 20 min" rather than an hourly rate — a rate
-    // extrapolated to a full hour, or averaged across elapsed calendar time,
-    // gets skewed whenever sessions aren't evenly spaced and doesn't match
-    // anything a mom actually experiences. oz-per-minute scaled to a
-    // familiar 20-minute session length is stable regardless of gaps
-    // between sessions. Manually logged sessions can have duration_sec: 0
-    // (left blank), and a mis-tap/test session (e.g. 19 seconds) has real
-    // oz but almost no time — excluding anything under
-    // MIN_MEANINGFUL_SESSION_SEC keeps this honest either way.
+    // What a typical session actually looked like — literal average oz and
+    // average length together, no extrapolation or scaling to a fixed unit
+    // (an hourly rate or a "per 20 min" projection both assume a constant
+    // flow rate, which isn't fair to a 10 or 15-minute pumper). Manually
+    // logged sessions can have duration_sec: 0 (left blank), and a mis-tap
+    // or test session (e.g. 19 seconds) has real oz but almost no time —
+    // excluding anything under MIN_MEANINGFUL_SESSION_SEC keeps this honest.
     const timedSessions = sessions.filter((s) => (s.duration_sec ?? 0) >= MIN_MEANINGFUL_SESSION_SEC);
     const timedOz      = timedSessions.reduce((sum, s) => sum + (s.total_oz ?? 0), 0);
     const timedMinutes = timedSessions.reduce((sum, s) => sum + ((s.duration_sec ?? 0) / 60), 0);
-    const ozPer20Min = timedMinutes > 0 ? (timedOz / timedMinutes) * 20 : 0;
+    const typicalSessionOz  = timedSessions.length > 0 ? timedOz / timedSessions.length : null;
+    const typicalSessionMin = timedSessions.length > 0 ? timedMinutes / timedSessions.length : null;
     const avgPerDay = dailyData.length > 0 ? totalOz / dailyData.length : 0;
 
     // Build 7-day (or full range) sparkline data
@@ -99,7 +98,8 @@ export function ViewerDataDisplay({ sessions, personInitials, unit }: ViewerData
     return {
       dailyData,
       totalOz,
-      ozPer20Min: Math.round(ozPer20Min * 10) / 10,
+      typicalSessionOz:  typicalSessionOz  != null ? Math.round(typicalSessionOz * 100) / 100 : null,
+      typicalSessionMin: typicalSessionMin != null ? Math.round(typicalSessionMin) : null,
       avgPerDay: Math.round(avgPerDay * 100) / 100,
       sparkData,
       sparkLabels,
@@ -170,11 +170,16 @@ export function ViewerDataDisplay({ sessions, personInitials, unit }: ViewerData
           </View>
           <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 11, color: COLORS.ink3, marginBottom: 4, fontWeight: "600" }}>
-              Output per 20 Min
+              Typical Session
             </Text>
             <Text style={{ fontSize: 18, fontWeight: "700", color: COLORS.primary }}>
-              {formatUnit(analysis.ozPer20Min, unit)}
+              {analysis.typicalSessionOz != null ? formatUnit(analysis.typicalSessionOz, unit) : "—"}
             </Text>
+            {analysis.typicalSessionMin != null && (
+              <Text style={{ fontSize: 11, color: COLORS.ink3, marginTop: 2 }}>
+                in ~{analysis.typicalSessionMin} min
+              </Text>
+            )}
           </View>
         </View>
       </View>
