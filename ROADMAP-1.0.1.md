@@ -64,8 +64,15 @@ consistently deliver on it.
 
 ## Features
 
-- [ ] **Hydration ↔ output correlation** — add hydration line to the output
-      trend chart so moms can see how water intake tracks with production.
+- [x] **Hydration ↔ output correlation** — CORRECTED (Aug 1, 2026): this was
+      wrongly listed as pending; it's already built. `app/(tabs)/index.tsx`
+      overlays a dashed hydration line on the home screen output SparkLine
+      (gated behind the `track_hydration` profile setting, toggled at
+      Profile → "Track daily hydration"). Also already built and not
+      previously tracked here: pump comparison
+      (`app/tools/pump-compare.tsx`, Profile → My Pumps → "Compare pump
+      performance," needs Premium + 2 saved pumps) and a "Peak output"
+      best-time-of-day badge on the home screen chart.
 - [ ] **Realistic cycle-speed ranges per pump** — cycle is not universally
       1–12. Spectra uses values like 36 / 46 / 50 / 54; some pumps have no
       cycle setting at all. Consider per-pump setting definitions (the
