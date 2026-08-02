@@ -2,7 +2,7 @@
  * SessionInsightSheet — Session 5 Part 5
  * Post-session analysis modal. Premium users see:
  *   - Stats ("What happened")
- *   - Comparison to average + efficiency score ("What it means")
+ *   - Comparison to your own average ("What it means")
  *   - AI-generated next-step guidance ("What to do next") — template-driven
  */
 
@@ -11,7 +11,6 @@ import { View, Text, Pressable, Modal, ScrollView, ActivityIndicator, TextInput 
 import { StashGoal } from "../types";
 import { supabase } from "../lib/supabase";
 import { LinearGradient } from "expo-linear-gradient";
-import { EfficiencyScore, calcEfficiencyScore } from "./ui/EfficiencyScore";
 import { ConsultRecommendation } from "./ConsultRecommendation";
 import { PremiumTeaser } from "./ui/PremiumTeaser";
 import { fmtDuration } from "../lib/formatters";
@@ -52,23 +51,6 @@ interface SessionInsightProps {
 
 // ── Static helpers ────────────────────────────────────────────────────────────
 
-/**
- * Returns the mean inter-session gap (hours) from recent history, capped at 12h per gap
- * so that genuine long breaks (skipped days, illness) don't skew the typical.
- * Returns undefined if there isn't enough history to be meaningful (< 4 sessions → < 3 gaps).
- */
-function computeTypicalGapHours(sessions: SessionRecord[]): number | undefined {
-  if (sessions.length < 4) return undefined;
-  const sorted = [...sessions].sort(
-    (a, b) => new Date(a.started_at).getTime() - new Date(b.started_at).getTime()
-  );
-  const gaps: number[] = [];
-  for (let i = 1; i < sorted.length; i++) {
-    const gapH = (new Date(sorted[i].started_at).getTime() - new Date(sorted[i - 1].started_at).getTime()) / 3_600_000;
-    if (gapH < 12) gaps.push(gapH);
-  }
-  return gaps.length >= 3 ? gaps.reduce((a, b) => a + b, 0) / gaps.length : undefined;
-}
 
 function getDeltaLabel(
   oz: number,
@@ -197,15 +179,6 @@ export function SessionInsightSheet({
 }: SessionInsightProps) {
   const { profile } = useAuthStore();
   const { unit } = useUnit();
-  const typicalGapHours = computeTypicalGapHours(sessions);
-  const score = calcEfficiencyScore({
-    durationSec:        session.durationSec,
-    totalOz:            session.totalOz,
-    avgOz,
-    sessionStartedAt:   session.startedAt,
-    prevSessionEndedAt: session.prevSessionEndedAt,
-    typicalGapHours,
-  });
   const delta = getDeltaLabel(
     session.totalOz, avgOz, unit, pumpedAfterNursing,
     sessionCountToday, typicalDailySessionCount,
@@ -324,14 +297,11 @@ export function SessionInsightSheet({
                 <Text style={{ fontSize: 11, fontFamily: "Nunito_700Bold", fontWeight: "700", color: COLORS.ink3, textTransform: "uppercase", letterSpacing: 1, marginBottom: 12 }}>
                   What it means
                 </Text>
-                <View style={{ flexDirection: "row", gap: 12, marginBottom: 12 }}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 13, fontFamily: "Nunito_700Bold", fontWeight: "700", color: delta.color, marginBottom: 4 }}>
-                      {delta.label}
-                    </Text>
-                    <Text style={{ fontSize: 13, color: COLORS.ink2, lineHeight: 19 }}>{delta.blurb}</Text>
-                  </View>
-                  <EfficiencyScore score={score} size={68} />
+                <View style={{ marginBottom: 12 }}>
+                  <Text style={{ fontSize: 13, fontFamily: "Nunito_700Bold", fontWeight: "700", color: delta.color, marginBottom: 4 }}>
+                    {delta.label}
+                  </Text>
+                  <Text style={{ fontSize: 13, color: COLORS.ink2, lineHeight: 19 }}>{delta.blurb}</Text>
                 </View>
                 <View style={{ borderTopWidth: 1, borderTopColor: COLORS.border, paddingTop: 12 }}>
                   <Text style={{ fontSize: 13, color: COLORS.ink2, lineHeight: 19 }}>
@@ -391,7 +361,7 @@ export function SessionInsightSheet({
             <PremiumTeaser
               compact
               headline="After-session analysis"
-              description="See how this session compares to your average, your efficiency score, duration tips, and personalized next-step guidance."
+              description="See how this session compares to your average, duration tips, and personalized next-step guidance."
               unlocks={[]}
             />
           )}

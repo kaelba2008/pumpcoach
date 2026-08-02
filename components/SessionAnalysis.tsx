@@ -17,8 +17,7 @@ const RATE_OZ_PER_HOUR = 1.25; // per baby — Katie's (IBCLC) clinical baseline
 
 // Average gap between consecutive sessions (hours) — the "how long since
 // last pump" signal the expected-output baseline scales with. Falls back to
-// a typical 3h gap when there's only one session to work with (mirrors the
-// same fallback in components/ui/EfficiencyScore.tsx's calcEfficiencyScore).
+// a typical 3h gap when there's only one session to work with.
 function avgGapHours(sortedAsc: PumpSession[]): number {
   if (sortedAsc.length < 2) return 3;
   const gaps: number[] = [];
@@ -55,27 +54,21 @@ export function SessionAnalysis({ sessions, unit, babyCount = 1 }: SessionAnalys
     const typicalSessionOz  = timedSessions.length > 0 ? timedOz / timedSessions.length : null;
     const typicalSessionMin = timedSessions.length > 0 ? timedMinutes / timedSessions.length : null;
 
-    // Session quality score (0-100)
     const avgOz = totalOz / sessions.length;
     const avgDuration = totalMinutes / sessions.length;
-    const avgPain = sessions.reduce((sum, s) => sum + (s.pain_level ?? 0), 0) / sessions.length;
-    const goodLetdown = sessions.filter((s) => s.letdown_quality === "strong" || s.letdown_quality === "normal").length;
-    const letdownQuality = (goodLetdown / sessions.length) * 100;
 
-    // Quality score: 40% output, 25% duration, 20% letdown, 15% pain (inverted)
-    // Output baseline is rate-based (oz/hr), not a flat per-session number —
-    // a 4-hour gap should expect more output than a 2-hour gap, and pumping
-    // for multiple babies should expect proportionally more than one.
+    // Output vs. what's expected for the actual gap since last session and
+    // baby count — a signal that feeds the qualitative status/tips below,
+    // not a blended score. Rate-based (oz/hr), not a flat per-session
+    // number: a 4-hour gap should expect more output than a 2-hour gap,
+    // and pumping for multiple babies should expect proportionally more.
     const sortedAsc = [...sessions].sort(
       (a, b) => new Date(a.started_at).getTime() - new Date(b.started_at).getTime()
     );
     const expectedOzPerSession = RATE_OZ_PER_HOUR * avgGapHours(sortedAsc) * Math.max(1, babyCount);
-    const outputScore = Math.min(100, (avgOz / expectedOzPerSession) * 100);
-    const durationScore = Math.min(100, (avgDuration / 20) * 100); // baseline ~20min
-    const painScore = Math.max(0, 100 - (avgPain * 20)); // lower pain = higher score
-    const qualityScore = Math.round(
-      outputScore * 0.4 + durationScore * 0.25 + letdownQuality * 0.2 + painScore * 0.15
-    );
+    // 30% below expected — enough margin that normal session-to-session
+    // variation doesn't trip this on its own.
+    const outputBelowExpected = typicalSessionOz != null && typicalSessionOz < expectedOzPerSession * 0.7;
 
     // Trend: compare last 3 sessions to previous 3
     const recentThree = sessions.slice(0, 3);
@@ -110,11 +103,11 @@ export function SessionAnalysis({ sessions, unit, babyCount = 1 }: SessionAnalys
       efficiency: Math.round(efficiency * 100) / 100,
       typicalSessionOz:  typicalSessionOz  != null ? Math.round(typicalSessionOz * 100) / 100 : null,
       typicalSessionMin: typicalSessionMin != null ? Math.round(typicalSessionMin) : null,
-      qualityScore,
       trendPct: Math.round(trendPct),
       bestHour,
       hasPainIssue,
       hasLetdownIssue,
+      outputBelowExpected,
       avgOz: Math.round(avgOz * 100) / 100,
       avgDuration: Math.round(avgDuration),
     };
@@ -137,13 +130,6 @@ export function SessionAnalysis({ sessions, unit, babyCount = 1 }: SessionAnalys
     return "→ stable";
   };
 
-  const getQualityLabel = () => {
-    if (analysis.qualityScore >= 80) return "Great";
-    if (analysis.qualityScore >= 60) return "Good";
-    if (analysis.qualityScore >= 40) return "Fair";
-    return "Low";
-  };
-
   const recommendations = [];
   if (analysis.hasPainIssue) {
     recommendations.push("Ensure proper flange fit — wrong size reduces efficiency and causes pain");
@@ -160,7 +146,13 @@ export function SessionAnalysis({ sessions, unit, babyCount = 1 }: SessionAnalys
   if (analysis.trendPct < -10) {
     recommendations.push("Ensure adequate hydration, rest, and nutrition — these directly affect supply");
   }
-  if (recommendations.length === 0) {
+  if (analysis.outputBelowExpected) {
+    recommendations.push("Output was a bit lower than expected for the time since your last session — dehydration, stress, or a longer stretch than usual can all play a role. One session doesn't define your supply.");
+  }
+  // Computed before the default message is added, so this reflects
+  // whether anything above actually needs attention — not a hidden score.
+  const hasConcerns = recommendations.length > 0;
+  if (!hasConcerns) {
     recommendations.push("Your sessions are consistent and efficient — keep up the great work!");
   }
 
@@ -168,15 +160,14 @@ export function SessionAnalysis({ sessions, unit, babyCount = 1 }: SessionAnalys
     <View className="bg-surface rounded-3xl p-6" style={{ shadowColor: "#1A1A2E", shadowOpacity: 0.06, shadowRadius: 12, elevation: 3 }}>
       <Text className="text-base font-serif text-ink mb-4">Session Insights</Text>
 
-      {/* Quality Score */}
+      {/* How things are going — qualitative, not a score */}
       <View className="mb-5 pb-5 border-b border-border">
-        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-          <Text className="text-sm text-ink-2">Session Quality</Text>
-          <View style={{ flexDirection: "row", alignItems: "baseline", gap: 4 }}>
-            <Text className="text-2xl font-sans-bold text-primary">{analysis.qualityScore}</Text>
-            <Text className="text-xs text-ink-2">/100 {getQualityLabel()}</Text>
-          </View>
-        </View>
+        <Text className={`text-base font-sans-bold ${hasConcerns ? "text-orange-600" : "text-green-600"}`}>
+          {hasConcerns ? "A couple things worth a look" : "Sessions are going well"}
+        </Text>
+        <Text className="text-xs text-ink-3 mt-1">
+          {hasConcerns ? "See the tips below for what might help." : "Keep up what you're doing."}
+        </Text>
       </View>
 
       {/* Efficiency & Trend */}

@@ -40,11 +40,22 @@ consistently deliver on it.
       pattern-detection engine (declining_output_trend, output_trending_up)
       and the Supply page's guidance system at it, so they can no longer
       tell contradictory stories.
-- [ ] **Re-evaluate the session quality score's value.** Katie's read: it
-      doesn't give much real insight. Not a pure cosmetic removal though —
-      `analysis.efficiency` thresholds (`components/SessionAnalysis.tsx`)
-      feed the recommendation engine, so reworking/removing the score means
-      auditing what else depends on it.
+- [x] **Re-evaluate the session quality score's value.** DONE (Aug 1, 2026):
+      removed both numeric scores — the home screen's blended 0-100
+      "Session Quality" (`components/SessionAnalysis.tsx`) and the
+      post-session circular gauge (`components/SessionInsightSheet.tsx`,
+      via the now-deleted `components/ui/EfficiencyScore.tsx`). Turned out
+      the actual recommendation/tips logic already used raw signals
+      directly (pain, letdown, efficiency, trend), never the blended score
+      — so removal was safe and isolated. Post-session sheet now leans on
+      `getDeltaLabel()` alone (already a warm, self-referential, non-numeric
+      comparison to the mom's own average — no changes needed, it was
+      already doing this well). Home screen card now shows a one-line
+      qualitative status ("Sessions are going well" / "A couple things
+      worth a look") computed from the same flags that drive the Tips list
+      below it, so the two can never disagree. The gap-aware, per-baby
+      output baseline built earlier is preserved as one more signal feeding
+      this status (and a new tip) rather than discarded.
 - [ ] **Audit `insight_templates` content against the encouragement/no-guilt
       brief above.** The system prompt already has good bones (see
       `NO_GUILT_INSTRUCTION`), but the actual template rows (clinical
