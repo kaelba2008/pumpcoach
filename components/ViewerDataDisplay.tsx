@@ -1,13 +1,14 @@
 import React, { useMemo, useState } from "react";
 import { View, Text, ScrollView, Pressable, Alert } from "react-native";
 import { format, startOfDay, subDays } from "date-fns";
-import { PumpSession } from "../types";
+import { PumpSession, NursingSession } from "../types";
 import { COLORS, SERIF, MIN_MEANINGFUL_SESSION_SEC } from "../lib/constants";
 import { formatUnit } from "../lib/units";
 import { SparkLine } from "./ui/SparkLine";
 
 interface ViewerDataDisplayProps {
   sessions: PumpSession[];
+  nursingSessions?: NursingSession[];
   personInitials: string;
   unit: "oz" | "ml";
 }
@@ -16,18 +17,21 @@ interface DayData {
   date: string;
   dateObj: Date;
   sessions: PumpSession[];
+  nursingSessions: NursingSession[];
   totalOz: number;
   avgOz: number;
   count: number;
 }
 
-export function ViewerDataDisplay({ sessions, personInitials, unit }: ViewerDataDisplayProps) {
+export function ViewerDataDisplay({ sessions, nursingSessions = [], personInitials, unit }: ViewerDataDisplayProps) {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
   const analysis = useMemo(() => {
-    if (sessions.length === 0) return null;
+    if (sessions.length === 0 && nursingSessions.length === 0) return null;
 
-    // Group sessions by date
+    // Group pump + nursing sessions by date so a day with only nursing
+    // logged (no pumping) still shows up — an IBCLC needs the full
+    // feeding picture, not just pump output.
     const byDate = new Map<string, PumpSession[]>();
     sessions.forEach((s) => {
       const dateStr = format(new Date(s.started_at), "yyyy-MM-dd");
@@ -35,11 +39,22 @@ export function ViewerDataDisplay({ sessions, personInitials, unit }: ViewerData
       byDate.get(dateStr)!.push(s);
     });
 
+    const nursingByDate = new Map<string, NursingSession[]>();
+    nursingSessions.forEach((n) => {
+      const dateStr = format(new Date(n.nursed_at), "yyyy-MM-dd");
+      if (!nursingByDate.has(dateStr)) nursingByDate.set(dateStr, []);
+      nursingByDate.get(dateStr)!.push(n);
+    });
+
+    const allDates = new Set([...byDate.keys(), ...nursingByDate.keys()]);
+
     // Calculate daily totals
     const dailyData: DayData[] = [];
-    byDate.forEach((sessionList, dateStr) => {
+    allDates.forEach((dateStr) => {
+      const sessionList = byDate.get(dateStr) ?? [];
+      const nursingList = nursingByDate.get(dateStr) ?? [];
       const totalOz = sessionList.reduce((sum, s) => sum + (s.total_oz ?? 0), 0);
-      const avgOz = totalOz / sessionList.length;
+      const avgOz = sessionList.length > 0 ? totalOz / sessionList.length : 0;
       dailyData.push({
         date: dateStr,
         // Bare "yyyy-MM-dd" strings parse as UTC midnight, which rolls
@@ -47,6 +62,7 @@ export function ViewerDataDisplay({ sessions, personInitials, unit }: ViewerData
         // to local noon instead, same fix as handleDayPress below.
         dateObj: new Date(`${dateStr}T12:00:00`),
         sessions: sessionList,
+        nursingSessions: nursingList,
         totalOz,
         avgOz,
         count: sessionList.length,
@@ -70,7 +86,10 @@ export function ViewerDataDisplay({ sessions, personInitials, unit }: ViewerData
     const timedMinutes = timedSessions.reduce((sum, s) => sum + ((s.duration_sec ?? 0) / 60), 0);
     const typicalSessionOz  = timedSessions.length > 0 ? timedOz / timedSessions.length : null;
     const typicalSessionMin = timedSessions.length > 0 ? timedMinutes / timedSessions.length : null;
-    const avgPerDay = dailyData.length > 0 ? totalOz / dailyData.length : 0;
+    // Denominator is days that had a pump session, not every day in
+    // dailyData — nursing-only days (added above so they're visible in
+    // the list) would otherwise dilute this pump-output average.
+    const avgPerDay = byDate.size > 0 ? totalOz / byDate.size : 0;
 
     // Build 7-day (or full range) sparkline data
     const endDate = new Date();
@@ -230,37 +249,66 @@ export function ViewerDataDisplay({ sessions, personInitials, unit }: ViewerData
                     {formatUnit(day.totalOz, unit)}
                   </Text>
                   <Text style={{ fontSize: 11, color: COLORS.ink3 }}>
-                    {day.count} session{day.count !== 1 ? "s" : ""}
+                    {day.count > 0 ? `${day.count} session${day.count !== 1 ? "s" : ""}` : null}
+                    {day.count > 0 && day.nursingSessions.length > 0 ? " · " : null}
+                    {day.nursingSessions.length > 0 ? `${day.nursingSessions.length} nursing` : null}
                   </Text>
                 </View>
               </View>
             </View>
 
-            {/* Sessions for this date */}
+            {/* Pump + nursing entries for this date, interleaved by time */}
             <View style={{ backgroundColor: "#fff", borderRadius: 12, borderWidth: 1, borderColor: COLORS.border, overflow: "hidden" }}>
-              {day.sessions.map((s, idx) => (
-                <View key={s.id}>
-                  {idx > 0 && <View style={{ height: 1, backgroundColor: COLORS.border }} />}
-                  <View style={{ paddingHorizontal: 12, paddingVertical: 10 }}>
-                    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                      <Text style={{ fontSize: 13, fontWeight: "600", color: COLORS.ink }}>
-                        {format(new Date(s.started_at), "h:mm a")}
-                      </Text>
-                      <Text style={{ fontSize: 13, fontWeight: "700", color: COLORS.primary }}>
-                        {formatUnit(s.total_oz ?? 0, unit)}
-                      </Text>
-                    </View>
-                    <Text style={{ fontSize: 11, color: COLORS.ink3 }}>
-                      {Math.round((s.duration_sec ?? 0) / 60)} min · {s.pump_mode || "—"} mode
-                    </Text>
-                    {s.notes ? (
-                      <Text style={{ fontSize: 12, color: COLORS.ink2, marginTop: 4 }} numberOfLines={2}>
-                        {s.notes}
-                      </Text>
-                    ) : null}
+              {[
+                ...day.sessions.map((s) => ({ kind: "pump" as const, time: s.started_at, data: s })),
+                ...day.nursingSessions.map((n) => ({ kind: "nursing" as const, time: n.nursed_at, data: n })),
+              ]
+                .sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime())
+                .map((entry, idx) => (
+                  <View key={`${entry.kind}-${entry.data.id}`}>
+                    {idx > 0 && <View style={{ height: 1, backgroundColor: COLORS.border }} />}
+                    {entry.kind === "pump" ? (
+                      <View style={{ paddingHorizontal: 12, paddingVertical: 10 }}>
+                        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                          <Text style={{ fontSize: 13, fontWeight: "600", color: COLORS.ink }}>
+                            {format(new Date(entry.data.started_at), "h:mm a")}
+                          </Text>
+                          <Text style={{ fontSize: 13, fontWeight: "700", color: COLORS.primary }}>
+                            {formatUnit(entry.data.total_oz ?? 0, unit)}
+                          </Text>
+                        </View>
+                        <Text style={{ fontSize: 11, color: COLORS.ink3 }}>
+                          {Math.round((entry.data.duration_sec ?? 0) / 60)} min · {entry.data.pump_mode || "—"} mode
+                        </Text>
+                        {entry.data.notes ? (
+                          <Text style={{ fontSize: 12, color: COLORS.ink2, marginTop: 4 }} numberOfLines={2}>
+                            {entry.data.notes}
+                          </Text>
+                        ) : null}
+                      </View>
+                    ) : (
+                      <View style={{ paddingHorizontal: 12, paddingVertical: 10, backgroundColor: COLORS.primaryMist }}>
+                        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                          <Text style={{ fontSize: 13, fontWeight: "600", color: COLORS.ink }}>
+                            🤱 {format(new Date(entry.data.nursed_at), "h:mm a")}
+                          </Text>
+                          <Text style={{ fontSize: 12, color: COLORS.ink3 }}>Nursed</Text>
+                        </View>
+                        <Text style={{ fontSize: 11, color: COLORS.ink3 }}>
+                          {[
+                            entry.data.duration_min != null ? `${entry.data.duration_min} min` : null,
+                            entry.data.side,
+                          ].filter(Boolean).join(" · ") || "—"}
+                        </Text>
+                        {entry.data.notes ? (
+                          <Text style={{ fontSize: 12, color: COLORS.ink2, marginTop: 4 }} numberOfLines={2}>
+                            {entry.data.notes}
+                          </Text>
+                        ) : null}
+                      </View>
+                    )}
                   </View>
-                </View>
-              ))}
+                ))}
             </View>
           </View>
         ))}

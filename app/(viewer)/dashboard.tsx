@@ -13,7 +13,7 @@ import { COLORS, SERIF } from "../../lib/constants";
 import { fmtOz } from "../../lib/formatters";
 import { ViewerDataDisplay } from "../../components/ViewerDataDisplay";
 import { useUnit } from "../../hooks/useUnit";
-import { PumpSession, Profile, ViewerNote, Baby } from "../../types";
+import { PumpSession, Profile, ViewerNote, Baby, NursingSession } from "../../types";
 import { primaryBaby } from "../../lib/babies";
 
 function getInitials(name: string | null | undefined): string {
@@ -31,6 +31,7 @@ export default function ViewerDashboard() {
   const [ownerProfile, setOwnerProfile] = useState<Profile | null>(null);
   const [ownerBabies,  setOwnerBabies]  = useState<Baby[]>([]);
   const [sessions,     setSessions]     = useState<PumpSession[]>([]);
+  const [nursingSessions, setNursingSessions] = useState<NursingSession[]>([]);
   const [stashOz,      setStashOz]      = useState<number>(0);
   const [note,         setNote]         = useState<ViewerNote | null>(null);
   const [refreshing,   setRefreshing]   = useState(false);
@@ -50,7 +51,7 @@ export default function ViewerDashboard() {
     // 90 days of history for viewers (IBCLCs need to see trends)
     const since = subDays(new Date(), 90).toISOString();
 
-    const [profileRes, babiesRes, sessionsRes, stashRes, noteRes] = await Promise.all([
+    const [profileRes, babiesRes, sessionsRes, nursingRes, stashRes, noteRes] = await Promise.all([
       supabase.from("profiles").select("*").eq("id", viewingOwnerId).maybeSingle(),
       supabase.from("babies").select("*").eq("user_id", viewingOwnerId).order("created_at", { ascending: true }),
       supabase.from("pump_sessions")
@@ -58,6 +59,11 @@ export default function ViewerDashboard() {
         .eq("user_id", viewingOwnerId)
         .gte("started_at", since)
         .order("started_at", { ascending: false }),
+      supabase.from("nursing_sessions")
+        .select("*")
+        .eq("user_id", viewingOwnerId)
+        .gte("nursed_at", since)
+        .order("nursed_at", { ascending: false }),
       supabase.from("stash_entries")
         .select("oz")
         .eq("user_id", viewingOwnerId)
@@ -73,6 +79,7 @@ export default function ViewerDashboard() {
     if (profileRes.data) setOwnerProfile(profileRes.data as Profile);
     setOwnerBabies((babiesRes.data ?? []) as Baby[]);
     if (sessionsRes.data) setSessions(sessionsRes.data as PumpSession[]);
+    setNursingSessions((nursingRes.data ?? []) as NursingSession[]);
     setNote((noteRes.data as ViewerNote) ?? null);
 
     const totalStash = (stashRes.data ?? []).reduce((sum, e) => sum + (e.oz ?? 0), 0);
@@ -125,6 +132,7 @@ export default function ViewerDashboard() {
   const today = startOfDay(new Date()).toISOString();
   const todaySessions = sessions.filter((s) => s.started_at >= today);
   const todayOz = todaySessions.reduce((sum, s) => sum + (s.total_oz ?? 0), 0);
+  const todayNursing = nursingSessions.filter((n) => n.nursed_at >= today);
 
   const initials = getInitials(ownerProfile?.display_name);
   const babyName = primaryBaby(ownerBabies)?.name;
@@ -222,6 +230,14 @@ export default function ViewerDashboard() {
                 {fmtOz(stashOz)}
               </Text>
             </View>
+            {todayNursing.length > 0 && (
+              <View>
+                <Text style={{ fontSize: 12, color: COLORS.ink3, marginBottom: 2 }}>Nursed today</Text>
+                <Text style={{ fontSize: 18, fontFamily: "Nunito_700Bold", fontWeight: "700", color: COLORS.ink }}>
+                  {todayNursing.length}
+                </Text>
+              </View>
+            )}
           </View>
         </View>
 
@@ -256,6 +272,7 @@ export default function ViewerDashboard() {
         {/* Full data display: metrics, clickable graph, sessions grouped by day (90 days) */}
         <ViewerDataDisplay
           sessions={sessions}
+          nursingSessions={nursingSessions}
           personInitials={initials}
           unit={unit}
         />
