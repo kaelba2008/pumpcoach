@@ -15,6 +15,7 @@ export type PumpingContext =
   | "equal_pumping_nursing"
   | "work_pumping"
   | "mostly_nursing"
+  | "mostly_pumping"
   | "supply_building"
   | "triple_feeding"
   | "weaning"
@@ -204,7 +205,7 @@ export function detectPatterns(
   // ── Pattern 7: First week encouragement (check first — highest priority for new users)
   if (!suppressedPatterns.has("first_week_encouragement") && babyAgeWeeks <= 1 && sessions.length >= 1) {
     const primaryContexts: PumpingContext[] = [
-      "exclusive_pumping", "equal_pumping_nursing", "supply_building", "triple_feeding",
+      "exclusive_pumping", "equal_pumping_nursing", "supply_building", "triple_feeding", "mostly_pumping",
     ];
     const variant = primaryContexts.includes(pumpingContext)
       ? "primary_pumping"

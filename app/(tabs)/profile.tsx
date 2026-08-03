@@ -37,6 +37,7 @@ const PUMPING_CONTEXT_LABELS: Record<PumpingContext, string> = {
   equal_pumping_nursing: "Pumping and nursing equally",
   work_pumping:          "Pumping at work, nursing otherwise",
   mostly_nursing:        "Mostly nursing, pumping occasionally",
+  mostly_pumping:        "Mostly pumping, nursing occasionally",
   supply_building:       "Building supply",
   triple_feeding:        "Triple feeding",
   weaning:               "Weaning or reducing",

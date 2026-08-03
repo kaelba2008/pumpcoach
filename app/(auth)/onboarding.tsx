@@ -23,6 +23,7 @@ const PUMPING_CONTEXT_OPTIONS: { value: PumpingContext; label: string }[] = [
   { value: "equal_pumping_nursing", label: "Pumping and nursing about equally" },
   { value: "work_pumping",          label: "Pumping at work, nursing otherwise" },
   { value: "mostly_nursing",        label: "Mostly nursing, pumping occasionally" },
+  { value: "mostly_pumping",        label: "Mostly pumping, nursing occasionally" },
   { value: "supply_building",       label: "Building supply (nursing + adding pumps)" },
   { value: "triple_feeding",        label: "Triple feeding" },
   { value: "weaning",               label: "Weaning or reducing" },

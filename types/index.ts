@@ -4,6 +4,7 @@ export type PumpingContext =
   | "equal_pumping_nursing"
   | "work_pumping"
   | "mostly_nursing"
+  | "mostly_pumping"
   | "supply_building"
   | "triple_feeding"
   | "weaning"
