@@ -26,16 +26,21 @@ export async function loginPurchases(userId: string): Promise<CustomerInfo> {
   // On Android in particular, the native module has been observed to not be
   // ready yet by the time this fires right after a cold-start configure()
   // call, throwing "no singleton instance" even though configure() was
-  // already invoked. Retry a couple times with a short backoff rather than
-  // letting that transient race permanently fail the entitlement check.
+  // already invoked. Retry with increasing backoff rather than letting that
+  // transient race permanently fail the entitlement check — generous budget
+  // (~3s worst case) since this only ever fires in the narrow cold-start
+  // window and should be invisible the rest of the time.
+  const BACKOFF_MS = [300, 600, 900, 1200];
   let lastError: unknown;
-  for (let attempt = 0; attempt < 3; attempt++) {
+  for (let attempt = 0; attempt <= BACKOFF_MS.length; attempt++) {
     try {
       const { customerInfo } = await Purchases.logIn(userId);
       return customerInfo;
     } catch (e) {
       lastError = e;
-      await new Promise((resolve) => setTimeout(resolve, 400));
+      if (attempt < BACKOFF_MS.length) {
+        await new Promise((resolve) => setTimeout(resolve, BACKOFF_MS[attempt]));
+      }
     }
   }
   throw lastError;
