@@ -24,6 +24,7 @@ export default function ViewerInviteScreen() {
 
   const [email,       setEmail]       = useState("");
   const [password,    setPassword]    = useState("");
+  const [passwordVisible, setPasswordVisible] = useState(false);
   const [name,        setName]        = useState("");
   const [busy,        setBusy]        = useState(false);
   const [authMode,    setAuthMode]    = useState<"sign-in" | "sign-up">("sign-in");
@@ -308,17 +309,31 @@ export default function ViewerInviteScreen() {
 
           <View style={{ marginBottom: 32 }}>
             <Text style={{ fontSize: 13, color: COLORS.ink2, marginBottom: 6 }}>Password</Text>
-            <TextInput
-              value={password}
-              onChangeText={setPassword}
-              placeholder={authMode === "sign-up" ? "Choose a password" : "Your password"}
-              secureTextEntry
-              style={{
-                borderWidth: 1, borderColor: COLORS.border, borderRadius: 12,
-                paddingHorizontal: 16, paddingVertical: 12, fontSize: 15,
-                backgroundColor: "#fff", color: COLORS.ink,
-              }}
-            />
+            <View style={{ position: "relative", justifyContent: "center" }}>
+              <TextInput
+                value={password}
+                onChangeText={setPassword}
+                placeholder={authMode === "sign-up" ? "Choose a password" : "Your password"}
+                secureTextEntry={!passwordVisible}
+                autoCapitalize="none"
+                style={{
+                  borderWidth: 1, borderColor: COLORS.border, borderRadius: 12,
+                  paddingHorizontal: 16, paddingVertical: 12, paddingRight: 64, fontSize: 15,
+                  backgroundColor: "#fff", color: COLORS.ink,
+                }}
+              />
+              <Pressable
+                onPress={() => setPasswordVisible(v => !v)}
+                hitSlop={8}
+                style={{ position: "absolute", right: 14, paddingVertical: 6 }}
+                accessibilityRole="button"
+                accessibilityLabel={passwordVisible ? "Hide password" : "Show password"}
+              >
+                <Text style={{ fontSize: 13, fontFamily: "Nunito_600SemiBold", fontWeight: "600", color: COLORS.primary }}>
+                  {passwordVisible ? "Hide" : "Show"}
+                </Text>
+              </Pressable>
+            </View>
           </View>
 
           <Button

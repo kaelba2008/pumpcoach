@@ -140,44 +140,45 @@ function EntryCard({
   return (
     <Pressable
       onPress={showActions}
-      style={({ pressed }) => ({
+      accessibilityRole="button"
+      accessibilityLabel="Stash entry options"
+    >
+      <View style={{
         flexDirection: "row", alignItems: "center",
-        backgroundColor: pressed ? COLORS.muted : "#fff",
+        backgroundColor: "#fff",
         borderRadius: 16, padding: 16, marginBottom: 12,
         borderWidth: 1, borderColor: COLORS.border,
         opacity: expired ? 0.55 : 1,
         gap: 12,
-      })}
-      accessibilityRole="button"
-      accessibilityLabel="Stash entry options"
-    >
-      {/* Oz + meta, expiry dot inline with the oz line */}
-      <View style={{ flex: 1 }}>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 6 }}>
-          <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: EXPIRY_COLOR[tier] }} />
-          <Text style={{ fontSize: 17, fontFamily: "Nunito_700Bold", fontWeight: "700", color: COLORS.ink }}>
-            {fmtOz(entry.oz)}
+      }}>
+        {/* Oz + meta, expiry dot inline with the oz line */}
+        <View style={{ flex: 1 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 6 }}>
+            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: EXPIRY_COLOR[tier] }} />
+            <Text style={{ fontSize: 17, fontFamily: "Nunito_700Bold", fontWeight: "700", color: COLORS.ink }}>
+              {fmtOz(entry.oz)}
+            </Text>
+            {entry.label ? (
+              <Text style={{ fontSize: 12, color: COLORS.ink2, fontStyle: "italic" }} numberOfLines={1}>{entry.label}</Text>
+            ) : null}
+          </View>
+          <Text style={{ fontSize: 12, color: COLORS.ink3, lineHeight: 16, marginLeft: 18 }}>
+            {loc?.emoji} {loc?.label} · {fmtDate(entry.expressed_at)}
           </Text>
-          {entry.label ? (
-            <Text style={{ fontSize: 12, color: COLORS.ink2, fontStyle: "italic" }} numberOfLines={1}>{entry.label}</Text>
-          ) : null}
+          <Text style={{ fontSize: 12, fontFamily: "Nunito_600SemiBold", fontWeight: "600", color: EXPIRY_COLOR[tier], marginTop: 3, marginLeft: 18 }}>
+            {tier === "expired"
+              ? "Expired"
+              : tier === "expires_today"
+              ? `Expires in ${hours}h`
+              : tier === "use_soon"
+              ? `Use soon · good until ${format(exp, "MMM d")}`
+              : `Good until ${format(exp, "MMM d")}`}
+          </Text>
         </View>
-        <Text style={{ fontSize: 12, color: COLORS.ink3, lineHeight: 16, marginLeft: 18 }}>
-          {loc?.emoji} {loc?.label} · {fmtDate(entry.expressed_at)}
-        </Text>
-        <Text style={{ fontSize: 12, fontFamily: "Nunito_600SemiBold", fontWeight: "600", color: EXPIRY_COLOR[tier], marginTop: 3, marginLeft: 18 }}>
-          {tier === "expired"
-            ? "Expired"
-            : tier === "expires_today"
-            ? `Expires in ${hours}h`
-            : tier === "use_soon"
-            ? `Use soon · good until ${format(exp, "MMM d")}`
-            : `Good until ${format(exp, "MMM d")}`}
-        </Text>
-      </View>
 
-      {/* Right: chevron, vertically centered */}
-      <Text style={{ fontSize: 16, color: COLORS.ink3, alignSelf: "center" }}>›</Text>
+        {/* Right: chevron, vertically centered */}
+        <Text style={{ fontSize: 16, color: COLORS.ink3, alignSelf: "center" }}>›</Text>
+      </View>
     </Pressable>
   );
 }
@@ -811,24 +812,22 @@ function CreateGoalModal({
                   {(Object.keys(GOAL_META) as StashGoalType[]).map((type) => {
                     const meta = GOAL_META[type];
                     return (
-                      <Pressable
-                        key={type}
-                        onPress={() => goToDetails(type)}
-                        style={({ pressed }) => ({
-                          backgroundColor: pressed ? COLORS.muted : "#fff",
+                      <Pressable key={type} onPress={() => goToDetails(type)}>
+                        <View style={{
+                          backgroundColor: "#fff",
                           borderRadius: 18, borderWidth: 1.5,
                           borderColor: COLORS.border, padding: 18,
                           flexDirection: "row", alignItems: "center", gap: 14,
-                        })}
-                      >
-                        <Text style={{ fontSize: 28 }}>{meta.icon}</Text>
-                        <View style={{ flex: 1 }}>
-                          <Text style={{ fontSize: 15, fontFamily: "Nunito_700Bold", fontWeight: "700", color: COLORS.ink, marginBottom: 2 }}>
-                            {meta.label}
-                          </Text>
-                          <Text style={{ fontSize: 13, color: COLORS.ink2 }}>{meta.description}</Text>
+                        }}>
+                          <Text style={{ fontSize: 28 }}>{meta.icon}</Text>
+                          <View style={{ flex: 1 }}>
+                            <Text style={{ fontSize: 15, fontFamily: "Nunito_700Bold", fontWeight: "700", color: COLORS.ink, marginBottom: 2 }}>
+                              {meta.label}
+                            </Text>
+                            <Text style={{ fontSize: 13, color: COLORS.ink2 }}>{meta.description}</Text>
+                          </View>
+                          <Text style={{ fontSize: 18, color: COLORS.ink3 }}>›</Text>
                         </View>
-                        <Text style={{ fontSize: 18, color: COLORS.ink3 }}>›</Text>
                       </Pressable>
                     );
                   })}
@@ -1612,31 +1611,30 @@ export default function StashScreen() {
         )}
         {/* Premium teaser — free users only */}
         {!isPremium && (
-          <Pressable
-            onPress={() => router.push("/paywall" as any)}
-            style={({ pressed }) => ({
-              backgroundColor: pressed ? "#f0f5f6" : "#fff",
+          <Pressable onPress={() => router.push("/paywall" as any)}>
+            <View style={{
+              backgroundColor: "#fff",
               borderRadius: 16, borderWidth: 1, borderColor: "#CBDBE0",
               padding: 18, marginTop: 8, marginBottom: 8,
               flexDirection: "row", alignItems: "flex-start", gap: 14,
-            })}
-          >
-            <View style={{
-              width: 36, height: 36, borderRadius: 18,
-              backgroundColor: COLORS.primaryMist, alignItems: "center", justifyContent: "center", flexShrink: 0,
             }}>
-              <Text style={{ fontSize: 16 }}>✦</Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 14, fontFamily: "Nunito_700Bold", fontWeight: "700", color: COLORS.ink, marginBottom: 6, lineHeight: 20 }}>
-                Want to plan ahead?
-              </Text>
-              <Text style={{ fontSize: 13, color: COLORS.ink2, lineHeight: 20 }}>
-                Pump Coach Premium includes smart stash goals for returning to work, trips, and more, with personalized math based on your pumping data.
-              </Text>
-              <Text style={{ fontSize: 13, fontFamily: "Nunito_600SemiBold", fontWeight: "600", color: COLORS.primary, marginTop: 10 }}>
-                See Premium →
-              </Text>
+              <View style={{
+                width: 36, height: 36, borderRadius: 18,
+                backgroundColor: COLORS.primaryMist, alignItems: "center", justifyContent: "center", flexShrink: 0,
+              }}>
+                <Text style={{ fontSize: 16 }}>✦</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 14, fontFamily: "Nunito_700Bold", fontWeight: "700", color: COLORS.ink, marginBottom: 6, lineHeight: 20 }}>
+                  Want to plan ahead?
+                </Text>
+                <Text style={{ fontSize: 13, color: COLORS.ink2, lineHeight: 20 }}>
+                  Pump Coach Premium includes smart stash goals for returning to work, trips, and more, with personalized math based on your pumping data.
+                </Text>
+                <Text style={{ fontSize: 13, fontFamily: "Nunito_600SemiBold", fontWeight: "600", color: COLORS.primary, marginTop: 10 }}>
+                  See Premium →
+                </Text>
+              </View>
             </View>
           </Pressable>
         )}

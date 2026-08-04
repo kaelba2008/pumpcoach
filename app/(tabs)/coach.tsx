@@ -283,14 +283,13 @@ export default function CoachScreen() {
                 </View>
               ))}
             </View>
-            <Pressable
-              onPress={() => router.push("/paywall" as any)}
-              style={({ pressed }) => ({
+            <Pressable onPress={() => router.push("/paywall" as any)}>
+              <View style={{
                 backgroundColor: COLORS.primary, borderRadius: 20, paddingVertical: 16,
-                alignItems: "center", opacity: pressed ? 0.9 : 1,
-              })}
-            >
-              <Text style={{ fontSize: 15, fontFamily: "Nunito_700Bold", fontWeight: "700", color: "#fff" }}>Upgrade to Premium</Text>
+                alignItems: "center",
+              }}>
+                <Text style={{ fontSize: 15, fontFamily: "Nunito_700Bold", fontWeight: "700", color: "#fff" }}>Upgrade to Premium</Text>
+              </View>
             </Pressable>
           </View>
         ) : (
@@ -337,10 +336,11 @@ export default function CoachScreen() {
                         accessibilityRole="button"
                         accessibilityLabel={item}
                         accessibilityHint="Sends this question to the coach"
-                        style={({ pressed }) => ({
-                          backgroundColor: pressed ? COLORS.primaryMist : "#fff",
+                      >
+                        <View style={{
+                          backgroundColor: "#fff",
                           borderWidth: 1.5,
-                          borderColor: pressed ? COLORS.primary : "rgba(124,92,252,0.25)",
+                          borderColor: "rgba(124,92,252,0.25)",
                           borderRadius: 20,
                           paddingHorizontal: 14,
                           paddingVertical: 10,
@@ -352,10 +352,10 @@ export default function CoachScreen() {
                           shadowOpacity: 0.06,
                           shadowRadius: 4,
                           elevation: 1,
-                        })}
-                      >
-                        <Text style={{ fontSize: 13, color: COLORS.ink, lineHeight: 18, flexShrink: 1 }}>{item}</Text>
-                        <Text style={{ fontSize: 13, color: COLORS.primary, flexShrink: 0 }}>→</Text>
+                        }}>
+                          <Text style={{ fontSize: 13, color: COLORS.ink, lineHeight: 18, flexShrink: 1 }}>{item}</Text>
+                          <Text style={{ fontSize: 13, color: COLORS.primary, flexShrink: 0 }}>→</Text>
+                        </View>
                       </Pressable>
                     )}
                   />

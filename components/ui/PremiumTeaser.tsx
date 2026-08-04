@@ -32,16 +32,14 @@ export function PremiumTeaser({ headline, description, unlocks, compact = false 
           </Text>
           <Text style={{ fontSize: 12, color: COLORS.ink2, lineHeight: 17 }}>{description}</Text>
         </View>
-        <Pressable
-          onPress={() => router.push("/paywall" as any)}
-          style={({ pressed }) => ({
-            backgroundColor: pressed ? "#F5DDD4" : "#FDF0EB",
+        <Pressable onPress={() => router.push("/paywall" as any)} style={{ flexShrink: 0 }}>
+          <View style={{
+            backgroundColor: "#FDF0EB",
             borderRadius: 10, borderWidth: 1, borderColor: COLORS.peach,
             paddingHorizontal: 12, paddingVertical: 7,
-            opacity: pressed ? 0.9 : 1, flexShrink: 0,
-          })}
-        >
-          <Text style={{ fontSize: 12, fontFamily: "Nunito_700Bold", fontWeight: "700", color: "#8A4A35" }}>See Premium</Text>
+          }}>
+            <Text style={{ fontSize: 12, fontFamily: "Nunito_700Bold", fontWeight: "700", color: "#8A4A35" }}>See Premium</Text>
+          </View>
         </Pressable>
       </View>
     );
@@ -91,17 +89,15 @@ export function PremiumTeaser({ headline, description, unlocks, compact = false 
         ))}
       </View>
 
-      <Pressable
-        onPress={() => router.push("/paywall" as any)}
-        style={({ pressed }) => ({
+      <Pressable onPress={() => router.push("/paywall" as any)}>
+        <View style={{
           backgroundColor: COLORS.primary, borderRadius: 14,
           paddingVertical: 14, alignItems: "center",
-          opacity: pressed ? 0.88 : 1,
-        })}
-      >
-        <Text style={{ fontSize: 14, fontFamily: "Nunito_700Bold", fontWeight: "700", color: "#fff" }}>
-          Unlock Premium →
-        </Text>
+        }}>
+          <Text style={{ fontSize: 14, fontFamily: "Nunito_700Bold", fontWeight: "700", color: "#fff" }}>
+            Unlock Premium →
+          </Text>
+        </View>
       </Pressable>
 
       <Text style={{ fontSize: 11, color: COLORS.ink3, textAlign: "center", marginTop: 10 }}>

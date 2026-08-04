@@ -1044,24 +1044,22 @@ export default function SnapshotScreen() {
                       </View>
                     )}
 
-                    <Pressable
-                      onPress={() => setShowShareModal(true)}
-                      style={({ pressed }) => ({
+                    <Pressable onPress={() => setShowShareModal(true)}>
+                      <View style={{
                         backgroundColor: "#fff", borderRadius: 16,
                         paddingVertical: 16, paddingHorizontal: 20,
                         flexDirection: "row", alignItems: "center", gap: 14,
                         borderWidth: 1.5, borderColor: COLORS.border,
-                        opacity: pressed ? 0.8 : 1,
-                      })}
-                    >
-                      <Text style={{ fontSize: 20 }}>🔗</Text>
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ fontSize: 14, fontFamily: "Nunito_700Bold", fontWeight: "700", color: COLORS.ink }}>
-                          Invite someone
-                        </Text>
-                        <Text style={{ fontSize: 12, color: COLORS.ink3, marginTop: 2 }}>
-                          Send an email invite — they get read-only access
-                        </Text>
+                      }}>
+                        <Text style={{ fontSize: 20 }}>🔗</Text>
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ fontSize: 14, fontFamily: "Nunito_700Bold", fontWeight: "700", color: COLORS.ink }}>
+                            Invite someone
+                          </Text>
+                          <Text style={{ fontSize: 12, color: COLORS.ink3, marginTop: 2 }}>
+                            Send an email invite — they get read-only access
+                          </Text>
+                        </View>
                       </View>
                     </Pressable>
                   </View>
@@ -1075,42 +1073,38 @@ export default function SnapshotScreen() {
                       Send a clinical report to your lactation consultant or save it for your records.
                     </Text>
                     <View style={{ gap: 10 }}>
-                      <Pressable
-                        onPress={handleExportPDF}
-                        style={({ pressed }) => ({
+                      <Pressable onPress={handleExportPDF}>
+                        <View style={{
                           backgroundColor: COLORS.primary, borderRadius: 16,
                           paddingVertical: 16, paddingHorizontal: 20,
                           flexDirection: "row", alignItems: "center", gap: 14,
-                          opacity: pressed ? 0.88 : 1,
-                        })}
-                      >
-                        {exporting
-                          ? <ActivityIndicator color="#fff" size="small" />
-                          : <Text style={{ fontSize: 20 }}>📄</Text>}
-                        <View style={{ flex: 1 }}>
-                          <Text style={{ color: "#fff", fontSize: 14, fontFamily: "Nunito_700Bold", fontWeight: "700" }}>Export as PDF</Text>
-                          <Text style={{ color: "rgba(255,255,255,0.6)", fontSize: 12, marginTop: 2 }}>
-                            Full clinical report, save or share
-                          </Text>
+                        }}>
+                          {exporting
+                            ? <ActivityIndicator color="#fff" size="small" />
+                            : <Text style={{ fontSize: 20 }}>📄</Text>}
+                          <View style={{ flex: 1 }}>
+                            <Text style={{ color: "#fff", fontSize: 14, fontFamily: "Nunito_700Bold", fontWeight: "700" }}>Export as PDF</Text>
+                            <Text style={{ color: "rgba(255,255,255,0.6)", fontSize: 12, marginTop: 2 }}>
+                              Full clinical report, save or share
+                            </Text>
+                          </View>
                         </View>
                       </Pressable>
 
-                      <Pressable
-                        onPress={handleEmailLC}
-                        style={({ pressed }) => ({
+                      <Pressable onPress={handleEmailLC}>
+                        <View style={{
                           backgroundColor: "#fff", borderRadius: 16,
                           paddingVertical: 16, paddingHorizontal: 20,
                           flexDirection: "row", alignItems: "center", gap: 14,
                           borderWidth: 1.5, borderColor: COLORS.border,
-                          opacity: pressed ? 0.8 : 1,
-                        })}
-                      >
-                        <Text style={{ fontSize: 20 }}>✉️</Text>
-                        <View style={{ flex: 1 }}>
-                          <Text style={{ fontSize: 14, fontFamily: "Nunito_700Bold", fontWeight: "700", color: COLORS.ink }}>Email to my LC</Text>
-                          <Text style={{ fontSize: 12, color: COLORS.ink3, marginTop: 2 }}>
-                            Opens your email app with a pre-filled summary
-                          </Text>
+                        }}>
+                          <Text style={{ fontSize: 20 }}>✉️</Text>
+                          <View style={{ flex: 1 }}>
+                            <Text style={{ fontSize: 14, fontFamily: "Nunito_700Bold", fontWeight: "700", color: COLORS.ink }}>Email to my LC</Text>
+                            <Text style={{ fontSize: 12, color: COLORS.ink3, marginTop: 2 }}>
+                              Opens your email app with a pre-filled summary
+                            </Text>
+                          </View>
                         </View>
                       </Pressable>
                     </View>

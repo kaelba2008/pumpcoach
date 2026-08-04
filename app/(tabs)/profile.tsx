@@ -115,6 +115,8 @@ export default function ProfileScreen() {
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [newPassword,       setNewPassword]       = useState("");
   const [confirmPassword,   setConfirmPassword]   = useState("");
+  const [newPasswordVisible,     setNewPasswordVisible]     = useState(false);
+  const [confirmPasswordVisible, setConfirmPasswordVisible] = useState(false);
   const [changingPassword,  setChangingPassword]  = useState(false);
   const [userPumps,        setUserPumps]        = useState<UserPump[]>([]);
   const [showPumpsModal,   setShowPumpsModal]   = useState(false);
@@ -1630,25 +1632,51 @@ export default function ProfileScreen() {
               <ScrollView contentContainerStyle={{ padding: 20, gap: 16 }} keyboardShouldPersistTaps="handled">
                 <View>
                   <Text style={{ fontSize: 13, fontFamily: "Nunito_600SemiBold", fontWeight: "600", color: COLORS.ink2, marginBottom: 6 }}>New password</Text>
-                  <TextInput
-                    value={newPassword}
-                    onChangeText={setNewPassword}
-                    secureTextEntry
-                    autoCapitalize="none"
-                    placeholder="At least 8 characters"
-                    style={{ backgroundColor: "#fff", borderWidth: 1, borderColor: COLORS.border, borderRadius: 12, padding: 14, fontSize: 15, color: COLORS.ink }}
-                  />
+                  <View style={{ position: "relative", justifyContent: "center" }}>
+                    <TextInput
+                      value={newPassword}
+                      onChangeText={setNewPassword}
+                      secureTextEntry={!newPasswordVisible}
+                      autoCapitalize="none"
+                      placeholder="At least 8 characters"
+                      style={{ backgroundColor: "#fff", borderWidth: 1, borderColor: COLORS.border, borderRadius: 12, padding: 14, paddingRight: 64, fontSize: 15, color: COLORS.ink }}
+                    />
+                    <Pressable
+                      onPress={() => setNewPasswordVisible(v => !v)}
+                      hitSlop={8}
+                      style={{ position: "absolute", right: 14, paddingVertical: 6 }}
+                      accessibilityRole="button"
+                      accessibilityLabel={newPasswordVisible ? "Hide password" : "Show password"}
+                    >
+                      <Text style={{ fontSize: 13, fontFamily: "Nunito_600SemiBold", fontWeight: "600", color: COLORS.primary }}>
+                        {newPasswordVisible ? "Hide" : "Show"}
+                      </Text>
+                    </Pressable>
+                  </View>
                 </View>
                 <View>
                   <Text style={{ fontSize: 13, fontFamily: "Nunito_600SemiBold", fontWeight: "600", color: COLORS.ink2, marginBottom: 6 }}>Confirm new password</Text>
-                  <TextInput
-                    value={confirmPassword}
-                    onChangeText={setConfirmPassword}
-                    secureTextEntry
-                    autoCapitalize="none"
-                    placeholder="Type it again"
-                    style={{ backgroundColor: "#fff", borderWidth: 1, borderColor: COLORS.border, borderRadius: 12, padding: 14, fontSize: 15, color: COLORS.ink }}
-                  />
+                  <View style={{ position: "relative", justifyContent: "center" }}>
+                    <TextInput
+                      value={confirmPassword}
+                      onChangeText={setConfirmPassword}
+                      secureTextEntry={!confirmPasswordVisible}
+                      autoCapitalize="none"
+                      placeholder="Type it again"
+                      style={{ backgroundColor: "#fff", borderWidth: 1, borderColor: COLORS.border, borderRadius: 12, padding: 14, paddingRight: 64, fontSize: 15, color: COLORS.ink }}
+                    />
+                    <Pressable
+                      onPress={() => setConfirmPasswordVisible(v => !v)}
+                      hitSlop={8}
+                      style={{ position: "absolute", right: 14, paddingVertical: 6 }}
+                      accessibilityRole="button"
+                      accessibilityLabel={confirmPasswordVisible ? "Hide password" : "Show password"}
+                    >
+                      <Text style={{ fontSize: 13, fontFamily: "Nunito_600SemiBold", fontWeight: "600", color: COLORS.primary }}>
+                        {confirmPasswordVisible ? "Hide" : "Show"}
+                      </Text>
+                    </Pressable>
+                  </View>
                 </View>
                 <Button
                   label={changingPassword ? "Saving…" : "Update password"}

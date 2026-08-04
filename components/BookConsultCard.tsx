@@ -35,26 +35,24 @@ export function BookConsultCard({ variant = "full", trigger = "general" }: BookC
 
   if (variant === "compact") {
     return (
-      <Pressable
-        onPress={handleBook}
-        style={({ pressed }) => ({
+      <Pressable onPress={handleBook}>
+        <View style={{
           backgroundColor: "#fff",
           borderRadius: 14, padding: 14,
           flexDirection: "row", alignItems: "center", gap: 12,
           borderWidth: 1.5, borderColor: COLORS.border,
-          opacity: pressed ? 0.8 : 1,
-        })}
-      >
-        <Text style={{ fontSize: 22 }}>👩‍⚕️</Text>
-        <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 13, fontFamily: "Nunito_700Bold", fontWeight: "700", color: COLORS.ink }}>
-            Book with a Pumping Expert
-          </Text>
-          <Text style={{ fontSize: 12, color: COLORS.ink3, marginTop: 2 }}>
-            Virtual · HSA/FSA · Insurance-friendly
-          </Text>
+        }}>
+          <Text style={{ fontSize: 22 }}>👩‍⚕️</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 13, fontFamily: "Nunito_700Bold", fontWeight: "700", color: COLORS.ink }}>
+              Book with a Pumping Expert
+            </Text>
+            <Text style={{ fontSize: 12, color: COLORS.ink3, marginTop: 2 }}>
+              Virtual · HSA/FSA · Insurance-friendly
+            </Text>
+          </View>
+          <Text style={{ color: COLORS.primary, fontSize: 16 }}>→</Text>
         </View>
-        <Text style={{ color: COLORS.primary, fontSize: 16 }}>→</Text>
       </Pressable>
     );
   }
@@ -110,17 +108,15 @@ export function BookConsultCard({ variant = "full", trigger = "general" }: BookC
         ))}
       </View>
 
-      <Pressable
-        onPress={handleBook}
-        style={({ pressed }) => ({
+      <Pressable onPress={handleBook}>
+        <View style={{
           backgroundColor: "#fff", borderRadius: 14,
           paddingVertical: 14, alignItems: "center",
-          opacity: pressed ? 0.92 : 1,
-        })}
-      >
-        <Text style={{ fontSize: 14, fontFamily: "Nunito_700Bold", fontWeight: "700", color: COLORS.primary }}>
-          Book with a Pumping Expert →
-        </Text>
+        }}>
+          <Text style={{ fontSize: 14, fontFamily: "Nunito_700Bold", fontWeight: "700", color: COLORS.primary }}>
+            Book with a Pumping Expert →
+          </Text>
+        </View>
       </Pressable>
 
       <Text style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", textAlign: "center", marginTop: 10 }}>

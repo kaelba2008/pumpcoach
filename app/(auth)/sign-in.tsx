@@ -213,19 +213,17 @@ export default function SignInScreen() {
                 <Text style={{ fontSize: 12, color: COLORS.ink3 }}>new here?</Text>
                 <View style={{ flex: 1, height: 1, backgroundColor: COLORS.border }} />
               </View>
-              <Pressable
-                onPress={() => router.push("/(auth)/sign-up" as any)}
-                style={({ pressed }) => ({
+              <Pressable onPress={() => router.push("/(auth)/sign-up" as any)}>
+                <View style={{
                   borderRadius: 16, paddingVertical: 16,
                   alignItems: "center", borderWidth: 1.5,
                   borderColor: COLORS.primary,
-                  backgroundColor: pressed ? "rgba(74,94,96,0.05)" : "#fff",
-                  opacity: pressed ? 0.85 : 1,
-                })}
-              >
-                <Text style={{ color: COLORS.primary, fontSize: 15, fontFamily: "Nunito_700Bold", fontWeight: "700" }}>
-                  Create a free account
-                </Text>
+                  backgroundColor: "#fff",
+                }}>
+                  <Text style={{ color: COLORS.primary, fontSize: 15, fontFamily: "Nunito_700Bold", fontWeight: "700" }}>
+                    Create a free account
+                  </Text>
+                </View>
               </Pressable>
             </View>
           </View>
