@@ -5,6 +5,7 @@ import { Profile, Baby } from "../types";
 import { supabase } from "../lib/supabase";
 import {
   isEntitlementActive,
+  invalidateCustomerInfoCache,
   loginPurchases,
   logoutPurchases,
   PREMIUM_ENTITLEMENT,
@@ -98,6 +99,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const { user, updateFromCustomerInfo } = get();
     if (!user) return;
     try {
+      // The RevenueCat SDK caches CustomerInfo locally and has no way to
+      // know about a grant that happened server-side out-of-band (a promo
+      // redemption whose response the client never saw, a purchase made
+      // elsewhere) — so every check here must bust that cache first, not
+      // just the paywall's own in-session redemption flow. Without this,
+      // stale cached info keeps getting returned indefinitely even after
+      // the account genuinely has an active entitlement in RevenueCat.
+      await invalidateCustomerInfoCache();
       const info    = await loginPurchases(user.id);
       updateFromCustomerInfo(info);
       const tier = isEntitlementActive(info) ? "premium" : "free";

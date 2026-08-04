@@ -12,7 +12,6 @@ import {
   purchasePackage,
   restorePurchases,
   isEntitlementActive,
-  invalidateCustomerInfoCache,
 } from "../lib/purchases";
 import { useAuthStore } from "../store/authStore";
 import { supabase } from "../lib/supabase";
@@ -162,11 +161,9 @@ export default function PaywallScreen() {
       if (data?.trial_days) {
         setRefCodeResult("success");
         setRefCodeLifetime(data?.lifetime === true);
-        // The code already granted premium access server-side (RevenueCat
-        // promotional entitlement). The SDK's local cache has no way to know
-        // about a grant it didn't originate, so invalidate it first or
-        // refreshSubscription() will just hand back stale (non-premium) info.
-        await invalidateCustomerInfoCache();
+        // refreshSubscription() invalidates the RevenueCat cache itself
+        // before checking — needed since this entitlement was granted
+        // server-side, which the SDK's local cache has no way to know about.
         await refreshSubscription();
         setTimeout(() => router.back(), 1400);
       } else {
