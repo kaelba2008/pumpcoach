@@ -401,6 +401,54 @@ export function detectPatterns(
     }
   }
 
+  // ── Pattern 17: Sudden sharp output drop — check pump parts first
+  // Distinct from declining_output_trend, which catches a gradual ~10%+
+  // drift over a rolling 5-day window. This catches a much more SEVERE
+  // drop concentrated in just the last two days against the mom's own
+  // recent baseline. Clinically, a drop this sharp is far more often a
+  // worn or clogged pump part (a perished membrane, a blocked valve) than
+  // a gradual supply change — a real client's output cratered, she swapped
+  // parts, and it recovered within a session or two. This leads directly
+  // with "check your parts" rather than burying it as one of several
+  // possible causes the way declining_output_trend's copy does.
+  const skipForSuddenDrop: PumpingContext[] = ["mostly_nursing", "weaning"];
+  if (
+    !suppressedPatterns.has("sudden_output_drop") &&
+    !skipForSuddenDrop.includes(pumpingContext) &&
+    sessions.length >= 10
+  ) {
+    const recentCutoff = new Date(now);
+    recentCutoff.setDate(recentCutoff.getDate() - 2);
+    const baselineStart = new Date(now);
+    baselineStart.setDate(baselineStart.getDate() - 9);
+
+    const recentSessions = sorted.filter(s => new Date(s.started_at) >= recentCutoff);
+    const baselineSessions = sorted.filter(s => {
+      const t = new Date(s.started_at);
+      return t >= baselineStart && t < recentCutoff;
+    });
+
+    // Require enough data in both windows so a couple of sparse days
+    // doesn't read as a "drop" — this is about a real sudden change, not
+    // noise from a light logging day.
+    if (recentSessions.length >= 2 && baselineSessions.length >= 5) {
+      const recentAvg   = average(recentSessions.map(s => s.total_oz));
+      const baselineAvg = average(baselineSessions.map(s => s.total_oz));
+      const dropPct = baselineAvg > 0 ? ((baselineAvg - recentAvg) / baselineAvg) * 100 : 0;
+
+      // Much higher bar than declining_output_trend's 10% — this should
+      // only fire for a drop severe enough to be alarming, not routine
+      // day-to-day variation.
+      if (dropPct >= 30) {
+        detected.push({
+          pattern_name: "sudden_output_drop",
+          context_variant: "general",
+          context_data: { drop_pct: Math.round(dropPct) },
+        });
+      }
+    }
+  }
+
   // ── Pattern 13: Pump parts replacement reminder
   if (!suppressedPatterns.has("pump_parts_replacement_reminder")) {
     const skipCtx: PumpingContext[] = ["mostly_nursing", "weaning"];
@@ -559,6 +607,7 @@ export function detectPatterns(
   // ── Return top priority pattern (single insight per render cycle)
   // Priority: needs_attention > mild > celebratory > informational
   const priorityOrder: Record<string, number> = {
+    sudden_output_drop:                  6,
     declining_output_trend:              5,
     long_gap_between_sessions:           4,
     high_schedule_variability:           4,
