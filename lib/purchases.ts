@@ -21,8 +21,24 @@ export function configurePurchases(): void {
 
 // Call after Supabase sign-in — links RevenueCat identity to your user
 export async function loginPurchases(userId: string): Promise<CustomerInfo> {
-  const { customerInfo } = await Purchases.logIn(userId);
-  return customerInfo;
+  // Purchases.configure() (called once at app start in _layout.tsx) returns
+  // void, not a Promise — there is no way to await native SDK init directly.
+  // On Android in particular, the native module has been observed to not be
+  // ready yet by the time this fires right after a cold-start configure()
+  // call, throwing "no singleton instance" even though configure() was
+  // already invoked. Retry a couple times with a short backoff rather than
+  // letting that transient race permanently fail the entitlement check.
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const { customerInfo } = await Purchases.logIn(userId);
+      return customerInfo;
+    } catch (e) {
+      lastError = e;
+      await new Promise((resolve) => setTimeout(resolve, 400));
+    }
+  }
+  throw lastError;
 }
 
 // Call on sign-out
