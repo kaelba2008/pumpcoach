@@ -2,6 +2,68 @@
 
 Collected from tester + user feedback during the 1.0 launch push (July 30, 2026).
 
+## Android entitlements outage (Aug 3-4, 2026) — resolved
+
+Four stacked bugs, found and fixed in sequence overnight after Android
+testers who previously had working access suddenly lost it, and no promo
+code would grant premium:
+
+- [x] `EXPO_PUBLIC_REVENUECAT_ANDROID_KEY` was empty in `.env` (present since
+      it was first committed) — `Purchases.configure()` silently no-op'd on
+      Android, so every entitlement check failed from the start. Native
+      builds were unaffected (EAS's hosted env vars had the real key), but
+      any `eas update` OTA shipped from this checkout baked in the blank
+      one, bricking it for everyone already installed. Pulled the real key
+      from EAS's production environment into `.env`.
+- [x] `redeem-referral` recorded a code as "used" and always reported
+      success to the app *before* confirming the RevenueCat grant call
+      actually succeeded — a failed grant still permanently burned the
+      code with no visible error and no entitlement. Reordered both the
+      promo-code and referral-code paths to grant first, record usage only
+      after that succeeds, and surface the real error otherwise.
+- [x] RevenueCat's promotional-grant endpoint 404s ("subscriber was not
+      found") for any `app_user_id` it has never seen before, which only
+      happens once the client SDK calls `Purchases.logIn()` at least
+      once — never true for Android accounts caught by the key bug above.
+      `grantPromoDays()` now GETs the subscriber first (RevenueCat creates
+      it as a side effect if missing) before granting.
+- [x] `invalidateCustomerInfoCache()` was only ever called from the
+      paywall's own in-app redemption success handler — every other check,
+      including plain app-load, trusted RevenueCat's local SDK cache with
+      no way to know about a grant that happened server-side out-of-band.
+      Moved the invalidate into `refreshSubscription()` itself.
+- [x] Secondary: Android-only startup race — `Purchases.configure()`
+      returns void, not a Promise, and the following `logIn()` call could
+      fire before native init finished, throwing "no singleton instance."
+      `loginPurchases()` now retries with backoff (~3s worst-case budget).
+- [x] OTA updates only checked for a new bundle on a true cold launch
+      (`checkAutomatically: "ON_LOAD"`), which could sit unfetched a long
+      time if someone kept the app backgrounded. Now also checks (fetch
+      only, never force-reload) on every foreground.
+- [x] Two separate invite-email code paths (`profile.tsx`, and a fully
+      duplicated, never-migrated implementation in `snapshot.tsx`) were
+      still sending a `pumpcoach.app/invite` link that has never worked —
+      no page was ever built to serve that route. Both now send the
+      working paste-in code instead.
+
+Real accounts affected by the phantom-burn bug (codes marked used with no
+actual grant) were individually identified and reset via direct DB query
+against `promo_uses`/`profiles`, not a blanket fix — worth a periodic sweep
+if more reports come in from testers who redeemed a code Aug 1-4 and never
+saw premium.
+
+## New insight: sudden sharp output drop (Aug 4, 2026)
+
+- [x] **Check pump parts first, not buried in a list.** Added
+      `sudden_output_drop` pattern (`lib/patternDetection.ts`) — a 30%+
+      drop over just the last 2 days vs. the prior week, distinct from the
+      existing gradual `declining_output_trend` (10%+ over a rolling
+      5-day window) and higher priority than it. Based on a real client
+      case: sudden drop + clogs, resolved by swapping pump parts. Insight
+      copy leads directly with checking parts (names membranes, valves,
+      duckbills) and flags a clogged duct + IBCLC contact if pain/a lump
+      is also present.
+
 ## Insights & Analytics Redesign (flagged Aug 1, 2026 — needs a real focused session, not a launch-day patch)
 
 **The brief, in Katie's words** (this should be the north star for every decision
