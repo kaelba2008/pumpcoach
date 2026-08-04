@@ -12,7 +12,7 @@ import { DatePickerField } from "../../components/ui/DatePickerField";
 import { supabase } from "../../lib/supabase";
 import { useAuthStore } from "../../store/authStore";
 import { requestNotificationPermission } from "../../lib/notifications";
-import { COLORS, FLANGE_SIZES_MM, SERIF } from "../../lib/constants";
+import { COLORS, FLANGE_SIZES_MM, MAX_OZ_NUMERIC, SERIF } from "../../lib/constants";
 import { PumpingContext } from "../../types";
 
 const STEPS = ["privacy", "baby", "context", "lc", "meet", "pump", "goals", "referral"] as const;
@@ -45,12 +45,26 @@ export default function OnboardingScreen() {
   const [pumpModel,      setPumpModel]      = useState("");
   const [flangeSize,     setFlangeSize]     = useState<number | null>(null);
   const [dailyGoal,      setDailyGoal]      = useState("");
+  // Caught inline on this step (not at finish()) because onboarding has no
+  // back button — blocking submission on the LAST step over a bad value
+  // entered several steps earlier would strand the user with no way back
+  // to fix it.
+  const dailyGoalTooHigh = (parseFloat(dailyGoal) || 0) > MAX_OZ_NUMERIC;
   const [referralCode,   setReferralCode]   = useState("");
 
   const [saving, setSaving] = useState(false);
 
   const finish = async () => {
     if (!user) return;
+
+    // Defensive backstop, not the primary guard — the Goals step blocks
+    // Continue on an out-of-range value, but "Skip for now" bypasses that
+    // without clearing the field, and there's no back button here to fix
+    // anything caught only at this final step. Clamp rather than block so
+    // onboarding can never dead-end.
+    let parsedGoal = parseFloat(dailyGoal) || null;
+    if (parsedGoal !== null && parsedGoal > MAX_OZ_NUMERIC) parsedGoal = MAX_OZ_NUMERIC;
+
     setSaving(true);
     const { error } = await supabase.from("profiles").upsert({
       id:                       user.id,
@@ -59,7 +73,7 @@ export default function OnboardingScreen() {
       pump_brand:               pumpBrand.trim() || null,
       pump_model:               pumpModel.trim() || null,
       flange_size_mm:           flangeSize,
-      daily_goal_oz:            parseFloat(dailyGoal) || null,
+      daily_goal_oz:            parsedGoal,
       onboarded_at:             new Date().toISOString(),
     });
     if (error) { setSaving(false); Alert.alert("Error saving profile", error.message); return; }
@@ -540,13 +554,14 @@ export default function OnboardingScreen() {
                     placeholder="e.g. 24"
                     keyboardType="decimal-pad"
                     autoCapitalize="none"
+                    error={dailyGoalTooHigh ? `Goals top out around ${MAX_OZ_NUMERIC} oz — check what you typed` : undefined}
                   />
                   <Text style={{ fontSize: 12, color: COLORS.ink3, lineHeight: 18 }}>
                     Not sure what your goal should be? The AI Coach can help you figure out the right target based on your baby's needs.
                   </Text>
                 </View>
                 <View style={{ gap: 12 }}>
-                  <Button label="Continue" onPress={() => setStep("referral")} fullWidth size="lg" />
+                  <Button label="Continue" onPress={() => setStep("referral")} fullWidth size="lg" disabled={dailyGoalTooHigh} />
                   <Pressable onPress={() => setStep("referral")} style={{ alignItems: "center" }}>
                     <Text style={{ fontSize: 13, color: COLORS.ink3 }}>Skip for now</Text>
                   </Pressable>

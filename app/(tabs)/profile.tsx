@@ -24,7 +24,7 @@ import { ConsultRecommendation } from "../../components/ConsultRecommendation";
 import { DatePickerField } from "../../components/ui/DatePickerField";
 import { babyAgeLabel, babyAgeWeeks } from "../../lib/formatters";
 import { primaryBaby } from "../../lib/babies";
-import { COLORS, SERIF, PRIVACY_POLICY_URL, TERMS_OF_SERVICE_URL } from "../../lib/constants";
+import { COLORS, SERIF, PRIVACY_POLICY_URL, TERMS_OF_SERVICE_URL, MAX_OZ_NUMERIC } from "../../lib/constants";
 import { PumpingContext, Invitation, ViewerAccount, UserPump, Baby } from "../../types";
 import { useUnit } from "../../hooks/useUnit";
 import { useViewerAccess } from "../../hooks/useViewerAccess";
@@ -575,6 +575,10 @@ export default function ProfileScreen() {
         "How many ounces per day are you aiming for?",
         async (text) => {
           const oz = parseFloat(text);
+          if (!isNaN(oz) && oz > MAX_OZ_NUMERIC) {
+            Alert.alert("That goal looks off", `Daily goals top out around ${MAX_OZ_NUMERIC} oz — double check what you entered.`);
+            return;
+          }
           if (!isNaN(oz) && oz > 0) {
             await save({ daily_goal_oz: oz });
           }
@@ -591,6 +595,10 @@ export default function ProfileScreen() {
         autoCapitalize: "none",
         onSave: async (text) => {
           const oz = parseFloat(text);
+          if (!isNaN(oz) && oz > MAX_OZ_NUMERIC) {
+            Alert.alert("That goal looks off", `Daily goals top out around ${MAX_OZ_NUMERIC} oz — double check what you entered.`);
+            return;
+          }
           if (!isNaN(oz) && oz > 0) await save({ daily_goal_oz: oz });
         },
       });

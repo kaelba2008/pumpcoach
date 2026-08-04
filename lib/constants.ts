@@ -72,6 +72,13 @@ export const EXPIRY_WARNING_HOURS = 72;
 // 20-30 second stray entry can't extrapolate into an absurd hourly figure.
 export const MIN_MEANINGFUL_SESSION_SEC = 120;
 
+// Every oz-denominated numeric column (profiles.daily_goal_oz,
+// pump_sessions.total_oz/left_oz/right_oz, stash_entries.oz,
+// stash_goals.baby_oz_per_day) is NUMERIC(5,2) — Postgres throws a raw
+// "numeric field overflow" error above this, which free-text inputs must
+// reject client-side with a real message instead of surfacing that.
+export const MAX_OZ_NUMERIC = 999.99;
+
 export const SESSION_QUICK_PROMPTS = [
   "Why did my output dip today?",
   "Can I drop a session?",
