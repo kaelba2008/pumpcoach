@@ -24,7 +24,24 @@ function json(body: unknown, status = 200) {
 // enough out (100 years) that it's functionally permanent.
 const LIFETIME_DAYS = 100 * 365;
 
+async function ensureSubscriberExists(rcUserId: string): Promise<void> {
+  // The promotional-grant endpoint 404s ("subscriber was not found") for any
+  // app_user_id RevenueCat hasn't seen before — which normally only happens
+  // once the client SDK calls Purchases.logIn() at least once. A code
+  // redemption shouldn't depend on that having already happened (e.g. the
+  // client SDK failing to configure, like the Android key bug that caused
+  // this). A plain GET on the subscriber record creates it as a side effect
+  // if it doesn't exist yet, per RevenueCat's API — call this first so the
+  // grant below always has a subscriber to attach to.
+  await fetch(
+    `https://api.revenuecat.com/v1/subscribers/${encodeURIComponent(rcUserId)}`,
+    { headers: { "Authorization": `Bearer ${RC_SECRET_KEY}` } }
+  );
+}
+
 async function grantPromoDays(rcUserId: string, days: number): Promise<void> {
+  await ensureSubscriberExists(rcUserId);
+
   // Use an explicit end_time_ms rather than the "duration" enum so each code
   // can grant an exact number of days (e.g. 14, 60) instead of only the
   // fixed weekly/monthly/etc. buckets. Note: repeated grants REPLACE the
