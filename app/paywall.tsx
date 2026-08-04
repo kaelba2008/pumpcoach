@@ -52,7 +52,7 @@ export default function PaywallScreen() {
   const [restoring,       setRestoring]       = useState(false);
   const [showRefCode,     setShowRefCode]     = useState(false);
   const [refCode,         setRefCode]         = useState("");
-  const [refCodeResult,   setRefCodeResult]   = useState<"idle" | "success" | "invalid" | "already_used">("idle");
+  const [refCodeResult,   setRefCodeResult]   = useState<"idle" | "success" | "invalid" | "already_used" | "grant_failed">("idle");
   const [refCodeLifetime, setRefCodeLifetime] = useState(false);
   const [refCodeApplying, setRefCodeApplying] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
@@ -177,7 +177,12 @@ export default function PaywallScreen() {
             serverMessage = body?.error ?? "";
           } catch {}
         }
-        setRefCodeResult(serverMessage.toLowerCase().includes("already") ? "already_used" : "invalid");
+        const lower = serverMessage.toLowerCase();
+        setRefCodeResult(
+          lower.includes("already") ? "already_used" :
+          lower.includes("try again") ? "grant_failed" :
+          "invalid"
+        );
       }
     } catch {
       setRefCodeResult("invalid");
@@ -449,7 +454,7 @@ export default function PaywallScreen() {
                 style={{
                   backgroundColor: "#fff", borderRadius: 12,
                   borderWidth: 1.5,
-                  borderColor: refCodeResult === "success" ? "#4CAF82" : (refCodeResult === "invalid" || refCodeResult === "already_used") ? COLORS.error : COLORS.border,
+                  borderColor: refCodeResult === "success" ? "#4CAF82" : (refCodeResult === "invalid" || refCodeResult === "already_used" || refCodeResult === "grant_failed") ? COLORS.error : COLORS.border,
                   paddingHorizontal: 16, paddingVertical: 12,
                   fontSize: 15, color: COLORS.ink, textAlign: "center", letterSpacing: 1,
                 }}
@@ -479,6 +484,11 @@ export default function PaywallScreen() {
               {refCodeResult === "already_used" && (
                 <Text style={{ fontSize: 13, color: COLORS.error, textAlign: "center" }}>
                   You've already used this code!
+                </Text>
+              )}
+              {refCodeResult === "grant_failed" && (
+                <Text style={{ fontSize: 13, color: COLORS.error, textAlign: "center" }}>
+                  Your code is valid, but we couldn't activate access just now. Please try again in a moment.
                 </Text>
               )}
               {refCodeResult !== "success" && (

@@ -97,26 +97,30 @@ serve(async (req) => {
         .maybeSingle();
       if (existingPromo) return json({ error: "You have already redeemed this code" }, 400);
 
-      // Record use
+      // Grant FIRST — the RevenueCat call is the part that actually gives
+      // the user anything. Recording the code as "used" before confirming
+      // this succeeds would permanently burn the code on a failed grant,
+      // with no way to retry and no visible error (this is exactly what
+      // happened to real accounts before this fix).
+      const isLifetime = promoRow.is_lifetime === true;
+      const days = isLifetime ? LIFETIME_DAYS : (promoRow.reward_days as number) ?? 30;
+      try {
+        await grantPromoDays(newUserId, days);
+      } catch (e) {
+        console.error(`RC promotional grant failed for ${newUserId} (code ${normalizedCode}):`, e);
+        return json({ error: "Could not activate access right now. Please try again in a moment." }, 502);
+      }
+
+      // Record use — only after the grant actually succeeded
       const { error: promoInsertErr } = await admin
         .from("promo_uses")
         .insert({ code: normalizedCode, used_by: newUserId });
-      if (promoInsertErr) return json({ error: "Failed to record redemption" }, 500);
+      if (promoInsertErr) console.error("promo_uses insert failed after successful RC grant:", promoInsertErr);
 
       // Increment use_count
       await admin.from("promo_codes").update({ use_count: promoRow.use_count + 1 }).eq("code", normalizedCode);
 
-      // Grant days (or a lifetime-equivalent grant)
-      const isLifetime = promoRow.is_lifetime === true;
-      const days = isLifetime ? LIFETIME_DAYS : (promoRow.reward_days as number) ?? 30;
-      const errors: string[] = [];
-      await grantPromoDays(newUserId, days).catch((e) => errors.push(e.message));
-      return json({
-        success: true,
-        trial_days: days,
-        lifetime: isLifetime,
-        rcErrors: errors.length ? errors : undefined,
-      });
+      return json({ success: true, trial_days: days, lifetime: isLifetime });
     }
 
     // ── Path 2: user referral codes ───────────────────────────────────────────
@@ -138,20 +142,29 @@ serve(async (req) => {
 
     if (existing) return json({ error: "You have already used a referral code" }, 400);
 
-    // Record the use
+    // Grant the redeeming user FIRST, same reasoning as the promo path above —
+    // recording the use before confirming the grant succeeded would burn the
+    // user's one-time referral redemption with nothing to show for it.
+    const referrerId = codeRow.user_id as string;
+    const rewardDays = (codeRow.reward_days as number) ?? 7;
+    try {
+      await grantPromoDays(newUserId, rewardDays);
+    } catch (e) {
+      console.error(`RC promotional grant failed for ${newUserId} (referral ${normalizedCode}):`, e);
+      return json({ error: "Could not activate access right now. Please try again in a moment." }, 502);
+    }
+
+    // Record the use — only after the redeeming user's grant succeeded
     const { error: insertErr } = await admin
       .from("referral_uses")
       .insert({ code_id: codeRow.id, used_by: newUserId });
+    if (insertErr) console.error("referral_uses insert failed after successful RC grant:", insertErr);
 
-    if (insertErr) return json({ error: "Failed to record referral" }, 500);
-
-    // Grant premium to both users — don't fail the whole request if RC is down
-    const referrerId = codeRow.user_id as string;
-    const rewardDays = (codeRow.reward_days as number) ?? 7;
-    const errors: string[] = [];
-
-    await grantPromoDays(newUserId, rewardDays).catch((e) => errors.push(e.message));
-    await grantPromoDays(referrerId, rewardDays).catch((e) => errors.push(e.message));
+    // Referrer's reward is a bonus on top of an already-successful redemption —
+    // don't fail the caller's response over it, but log so it doesn't go unnoticed.
+    await grantPromoDays(referrerId, rewardDays).catch((e) =>
+      console.error(`RC promotional grant failed for referrer ${referrerId}:`, e)
+    );
 
     // Mark rewarded_at
     await admin
@@ -160,7 +173,7 @@ serve(async (req) => {
       .eq("code_id", codeRow.id)
       .eq("used_by", newUserId);
 
-    return json({ success: true, trial_days: rewardDays, rcErrors: errors.length ? errors : undefined });
+    return json({ success: true, trial_days: rewardDays });
   } catch (e) {
     console.error("redeem-referral error:", e);
     return json({ error: "Internal error" }, 500);
