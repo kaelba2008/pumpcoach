@@ -599,8 +599,9 @@ export default function SnapshotScreen() {
     const { data: inv, error } = await supabase.from("invitations").insert({ owner_id: user.id, email }).select("token").single();
     setInviteBusy(false);
     if (error || !inv) { Alert.alert("Error", error?.message ?? "Could not send invite"); return; }
-    const deepLink = `pumpcoach://viewer-invite?token=${inv.token}`;
-    const webLink = `https://pumpcoach.app/invite?token=${inv.token}`;
+    // Code-based acceptance, not a clickable link — see
+    // "Invite code flow replaces broken invite links" (no page was ever
+    // built to serve pumpcoach.app/invite, so that link always 404'd).
     const ownerName = profile?.display_name ?? "Someone";
     const babyName  = primaryBaby(babies)?.name;
     const appStoreUrl = "https://apps.apple.com/app/id6765497176";
@@ -609,14 +610,16 @@ export default function SnapshotScreen() {
       `Hi!`, ``,
       `${ownerName} has invited you to view her pumping data${babyName ? ` for ${babyName}` : ""} in Pump Coach.`, ``,
       `1. Download Pump Coach (free): ${appStoreUrl}`,
-      `2. Tap this link to accept: ${webLink}`, ``,
+      `2. Open the app and tap "Enter invite code" — it's at the bottom of the welcome screen, or if you already have an account, on the Profile tab under "Received an Invite?".`, ``,
+      `3. Copy and paste this invite code:`,
+      `   ${inv.token}`, ``,
       `You'll have read-only access to her sessions and data.`, ``, `— Pump Coach`,
     ].join("\n");
     const available = await MailComposer.isAvailableAsync();
     if (available) {
       await MailComposer.composeAsync({ recipients: [email], subject, body });
     } else {
-      await Share.share({ message: `${ownerName} invited you to view her Pump Coach data.\n\n1. Download: ${appStoreUrl}\n2. Accept: ${link}` });
+      await Share.share({ message: body });
     }
     setInviteEmail("");
     setShowShareModal(false);

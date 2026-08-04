@@ -375,11 +375,11 @@ export default function ProfileScreen() {
         isHtml: true,
       });
     } else {
-      // Fallback to share sheet on devices without a mail app configured
-      await Share.share({
-        message: `${ownerName} invited you to view her Pump Coach data${babyName ? ` for ${babyName}` : ""}.\n\n1. Download the app: ${appStoreUrl}\n2. Accept the invite: ${link}`,
-        url: link,
-      });
+      // Fallback to share sheet on devices without a mail app configured —
+      // reuse the same code-based message as the email body above (this
+      // used to reference a clickable invite link that never worked; see
+      // "Invite code flow replaces broken invite links").
+      await Share.share({ message: plainTextBody });
     }
 
     setSharingInviteEmail("");
