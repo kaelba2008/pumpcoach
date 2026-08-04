@@ -114,8 +114,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         .from("profiles")
         .update({ subscription_tier: tier })
         .eq("id", user.id);
-    } catch (e) {
+    } catch (e: any) {
       console.warn("refreshSubscription error:", e);
+      // TEMPORARY diagnostic — remove once the Android entitlement-read
+      // issue is confirmed fixed. console.warn is invisible to us in
+      // production, so mirror the real error into a table we can query.
+      supabase.from("debug_logs").insert({
+        user_id: user.id,
+        message: `refreshSubscription: ${e?.message ?? String(e)} | code=${e?.code ?? "?"} | userCancelled=${e?.userCancelled ?? "?"}`,
+      }).then(() => {}, () => {});
     }
   },
 
