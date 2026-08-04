@@ -25,6 +25,7 @@ import {
 import { setupNotificationChannel } from "../lib/notifications";
 import { setupEncouragementChannel, onAppForeground } from "../lib/encouragementScheduler";
 import { AppState } from "react-native";
+import * as Updates from "expo-updates";
 import { babyAgeWeeks } from "../lib/formatters";
 import { primaryBaby } from "../lib/babies";
 
@@ -141,6 +142,19 @@ function AuthGate({ children }: { children: React.ReactNode }) {
         if (profile?.id) {
           const weeks = babyAgeWeeks(primaryBaby(babies)?.dob ?? null) ?? 0;
           onAppForeground(profile.id, weeks).catch(() => {});
+        }
+
+        // Previously only checked for a new OTA update on a true cold
+        // launch (checkAutomatically: "ON_LOAD" in app.json), which can sit
+        // unfetched for a long time if someone keeps the app backgrounded
+        // rather than fully closing it. Checking on every foreground too
+        // means a fix is ready to apply on whatever launch comes next,
+        // sooner. Fetch only — never force-reload here, since that would
+        // interrupt anyone with a pump session actively timing.
+        if (Updates.isEnabled) {
+          Updates.checkForUpdateAsync()
+            .then((result) => (result.isAvailable ? Updates.fetchUpdateAsync() : null))
+            .catch(() => {});
         }
       }
     });
