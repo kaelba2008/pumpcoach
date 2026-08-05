@@ -169,9 +169,17 @@ consistently deliver on it.
       glanceable today's-output complication. Big feature: needs a native
       watchOS target, a new build, and App Store review — not a JS-only
       change like most of this list.
-- [ ] **Average split by nursing** — break the daily/weekly averages into
-      "with nursing" vs "without nursing" so combo feeders see honest
-      numbers.
+- [x] **Average split by nursing** — DONE (Aug 4, 2026), home screen only:
+      "Per session avg" now shows pump-only-days avg and nursing-days avg
+      separately whenever a mom has real data on both sides in the last 7
+      days (split by whether nursing_sessions has any entry that calendar
+      date) — exclusive pumpers see the same single number as before.
+      NOTE: Supply tab (`snapshot.tsx`) has the same blended-average issue
+      in `avg7dayPerSession`, more deeply wired (PDF export, email-to-LC
+      share text, StatPill, detail row) and arguably higher-stakes since
+      that PDF goes to real IBCLCs for clinical decisions. Deliberately
+      not touched yet — flagged for Katie to decide as its own follow-up
+      rather than done as a rushed extension of this one.
 - [ ] **Weaning mode** — guided session-dropping plan; big feature, needs
       IBCLC-driven spec from Katie.
 - [x] **Simple mode toggle** — DONE (Aug 4, 2026): new `profiles.simple_mode`,
