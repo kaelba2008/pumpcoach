@@ -91,6 +91,31 @@ export function ViewerDataDisplay({ sessions, nursingSessions = [], personInitia
     // the list) would otherwise dilute this pump-output average.
     const avgPerDay = byDate.size > 0 ? totalOz / byDate.size : 0;
 
+    // Split Typical Session by nursing day — same reasoning as the mom's
+    // own Supply tab: a combo feeder pumps less on a day she also nursed,
+    // so blending those sessions in with pump-only days understates both.
+    const timedPumpOnlyDay = timedSessions.filter((s) => !nursingByDate.has(format(new Date(s.started_at), "yyyy-MM-dd")));
+    const timedNursingDay  = timedSessions.filter((s) => nursingByDate.has(format(new Date(s.started_at), "yyyy-MM-dd")));
+    const hasNursingSplit = timedPumpOnlyDay.length > 0 && timedNursingDay.length > 0;
+    const typicalSessionOzPumpOnly = hasNursingSplit
+      ? timedPumpOnlyDay.reduce((sum, s) => sum + (s.total_oz ?? 0), 0) / timedPumpOnlyDay.length
+      : null;
+    const typicalSessionOzNursingDay = hasNursingSplit
+      ? timedNursingDay.reduce((sum, s) => sum + (s.total_oz ?? 0), 0) / timedNursingDay.length
+      : null;
+
+    // Removal rate — total pumped oz in the last 24h / 24 (a fixed
+    // denominator, unlike a per-session extrapolation, so it can't be
+    // distorted by a short session). Nursing sessions count toward the
+    // reliability threshold — a real removal event even though its volume
+    // isn't quantified — but are never added into the oz numerator.
+    const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const sessions24h = sessions.filter((s) => new Date(s.started_at) >= since24h);
+    const nursing24hCount = nursingSessions.filter((n) => new Date(n.nursed_at) >= since24h).length;
+    const rolling24hOz = sessions24h.reduce((sum, s) => sum + (s.total_oz ?? 0), 0);
+    const totalRemovals24h = sessions24h.length + nursing24hCount;
+    const hourlyRate = totalRemovals24h >= 5 ? rolling24hOz / 24 : null;
+
     // Build 7-day (or full range) sparkline data
     const endDate = new Date();
     const startDate = dailyData.length > 0 ? dailyData[dailyData.length - 1].dateObj : subDays(endDate, 7);
@@ -119,13 +144,17 @@ export function ViewerDataDisplay({ sessions, nursingSessions = [], personInitia
       totalOz,
       typicalSessionOz:  typicalSessionOz  != null ? Math.round(typicalSessionOz * 100) / 100 : null,
       typicalSessionMin: typicalSessionMin != null ? Math.round(typicalSessionMin) : null,
+      typicalSessionOzPumpOnly:   typicalSessionOzPumpOnly   != null ? Math.round(typicalSessionOzPumpOnly * 100) / 100 : null,
+      typicalSessionOzNursingDay: typicalSessionOzNursingDay != null ? Math.round(typicalSessionOzNursingDay * 100) / 100 : null,
+      hourlyRate: hourlyRate != null ? Math.round(hourlyRate * 100) / 100 : null,
+      hourlyRateNursingCount: nursing24hCount,
       avgPerDay: Math.round(avgPerDay * 100) / 100,
       sparkData,
       sparkLabels,
       sparkDates,
       dayTotals,
     };
-  }, [sessions]);
+  }, [sessions, nursingSessions]);
 
   if (!analysis || analysis.dailyData.length === 0) {
     return (
@@ -191,17 +220,60 @@ export function ViewerDataDisplay({ sessions, nursingSessions = [], personInitia
             <Text style={{ fontSize: 11, color: COLORS.ink3, marginBottom: 4, fontWeight: "600" }}>
               Typical Session
             </Text>
-            <Text style={{ fontSize: 18, fontWeight: "700", color: COLORS.primary }}>
-              {analysis.typicalSessionOz != null ? formatUnit(analysis.typicalSessionOz, unit) : "—"}
-            </Text>
-            {analysis.typicalSessionMin != null && (
-              <Text style={{ fontSize: 11, color: COLORS.ink3, marginTop: 2 }}>
-                in ~{analysis.typicalSessionMin} min
-              </Text>
+            {analysis.typicalSessionOzPumpOnly != null && analysis.typicalSessionOzNursingDay != null ? (
+              <>
+                <Text style={{ fontSize: 18, fontWeight: "700", color: COLORS.primary }}>
+                  {formatUnit(analysis.typicalSessionOzPumpOnly, unit)}
+                </Text>
+                <Text style={{ fontSize: 11, color: COLORS.ink3, marginTop: 2 }}>pump-only days</Text>
+                <Text style={{ fontSize: 13, fontWeight: "600", color: COLORS.ink2, marginTop: 4 }}>
+                  {formatUnit(analysis.typicalSessionOzNursingDay, unit)} <Text style={{ fontSize: 11, color: COLORS.ink3, fontWeight: "400" }}>on nursing days</Text>
+                </Text>
+              </>
+            ) : (
+              <>
+                <Text style={{ fontSize: 18, fontWeight: "700", color: COLORS.primary }}>
+                  {analysis.typicalSessionOz != null ? formatUnit(analysis.typicalSessionOz, unit) : "—"}
+                </Text>
+                {analysis.typicalSessionMin != null && (
+                  <Text style={{ fontSize: 11, color: COLORS.ink3, marginTop: 2 }}>
+                    in ~{analysis.typicalSessionMin} min
+                  </Text>
+                )}
+              </>
             )}
           </View>
         </View>
       </View>
+
+      {/* Removal rate — only shown once reliable */}
+      {analysis.hourlyRate != null && (
+        <View
+          style={{
+            marginHorizontal: 20,
+            marginBottom: 16,
+            backgroundColor: "#fff",
+            borderRadius: 16,
+            padding: 16,
+            borderWidth: 1,
+            borderColor: COLORS.border,
+          }}
+        >
+          <Text style={{ fontSize: 11, color: COLORS.ink3, marginBottom: 4, fontWeight: "600" }}>
+            Removal Rate
+          </Text>
+          <Text style={{ fontSize: 18, fontWeight: "700", color: COLORS.primary }}>
+            {formatUnit(analysis.hourlyRate, unit)}/hr
+          </Text>
+          <Text style={{ fontSize: 11, color: COLORS.ink3, marginTop: 4, lineHeight: 15 }}>
+            Pumped output over the last 24 hours, divided evenly across the day
+            {analysis.hourlyRateNursingCount > 0
+              ? ` (plus ${analysis.hourlyRateNursingCount} nursing session${analysis.hourlyRateNursingCount === 1 ? "" : "s"} in that window)`
+              : ""}
+            . Useful for confirming this holds steady through a session-count change.
+          </Text>
+        </View>
+      )}
 
       {/* Sparkline Graph (clickable) */}
       <View
