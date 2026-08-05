@@ -319,6 +319,12 @@ export default function DashboardScreen() {
     setRefreshing(false);
   }, [loadData]);
 
+  // Simple Mode: hides Session Insights, quality/status text, and trend
+  // stats everywhere they appear, for anyone who finds the numbers
+  // themselves anxiety-inducing rather than helpful. Leaves the core log —
+  // time, output, notes.
+  const simpleMode = profile?.simple_mode ?? false;
+
   // Derived stats
   const todayStart     = startOfDay(new Date()).toISOString();
   const todaySessions  = sessions.filter((s) => s.started_at >= todayStart);
@@ -494,8 +500,8 @@ export default function DashboardScreen() {
             </View>
           </View>
 
-          {/* ── Session Analysis ────────────────────────── */}
-          {todaySessions.length > 0 && (
+          {/* ── Session Analysis — hidden in Simple Mode ── */}
+          {!simpleMode && todaySessions.length > 0 && (
             <View style={{ marginBottom: 16 }}>
               <SessionAnalysis sessions={todaySessions} unit={unit} babyCount={Math.max(1, babies.length)} />
               {isPremium && (
@@ -563,79 +569,83 @@ export default function DashboardScreen() {
             </Pressable>
           )}
 
-          {/* ── Coach card (premium) / teaser (free) ──── */}
-          <View style={{ marginBottom: 16 }}>
-            {isPremium ? (
-              <CoachCard
-                todayOz={todayOz}
-                avgOz={weekDailyAvg}
-                sessionCount={todaySessions.length}
-                lastSessionAgo={lastSessionAgo}
-                goalOz={goalOz}
-                babyAgeWeeks={babyWeeksOld}
-                sessions={sessions as any}
-                pumpingContext={(profile?.pumping_context ?? "unspecified") as any}
-                userId={profile?.id ?? ""}
-                accountCreatedAt={profile?.created_at ?? new Date().toISOString()}
-                skipGapAlerts={skipGapAlerts}
-              />
-            ) : (
-              <PremiumTeaser
-                compact
-                headline="Personalized supply insights"
-                description="Unlock trend interpretation, session guidance, and a coach that reads your data."
-                unlocks={[]}
-              />
-            )}
-          </View>
+          {/* ── Coach card (premium) / teaser (free) — hidden in Simple Mode ── */}
+          {!simpleMode && (
+            <View style={{ marginBottom: 16 }}>
+              {isPremium ? (
+                <CoachCard
+                  todayOz={todayOz}
+                  avgOz={weekDailyAvg}
+                  sessionCount={todaySessions.length}
+                  lastSessionAgo={lastSessionAgo}
+                  goalOz={goalOz}
+                  babyAgeWeeks={babyWeeksOld}
+                  sessions={sessions as any}
+                  pumpingContext={(profile?.pumping_context ?? "unspecified") as any}
+                  userId={profile?.id ?? ""}
+                  accountCreatedAt={profile?.created_at ?? new Date().toISOString()}
+                  skipGapAlerts={skipGapAlerts}
+                />
+              ) : (
+                <PremiumTeaser
+                  compact
+                  headline="Personalized supply insights"
+                  description="Unlock trend interpretation, session guidance, and a coach that reads your data."
+                  unlocks={[]}
+                />
+              )}
+            </View>
+          )}
 
           {/* ── Daily tip ──────────────────────────────── */}
           <View style={{ marginBottom: 16 }}>
             <DailyTip />
           </View>
 
-          {/* ── 7-day trend ─────────────────────────────── */}
-          <View style={{
-            backgroundColor: "#fff", borderRadius: 20, padding: 18, marginBottom: 16,
-            shadowColor: "#1A1A2E", shadowOpacity: 0.05, shadowRadius: 8, elevation: 2,
-          }}>
-            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-              <Text style={{ fontSize: 11, fontFamily: "Nunito_700Bold", fontWeight: "700", color: COLORS.ink3, textTransform: "uppercase", letterSpacing: 1 }}>
-                7-day trend
-              </Text>
-              {bestHour && (
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                  <Text style={{ fontSize: 11, color: COLORS.ink3 }}>Peak output</Text>
-                  <View style={{ backgroundColor: "#E4DBFF", borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 }}>
-                    <Text style={{ fontSize: 11, fontFamily: "Nunito_700Bold", fontWeight: "700", color: COLORS.primary }}>
-                      {bestHour}
-                    </Text>
+          {/* ── 7-day trend — hidden in Simple Mode ─────── */}
+          {!simpleMode && (
+            <View style={{
+              backgroundColor: "#fff", borderRadius: 20, padding: 18, marginBottom: 16,
+              shadowColor: "#1A1A2E", shadowOpacity: 0.05, shadowRadius: 8, elevation: 2,
+            }}>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                <Text style={{ fontSize: 11, fontFamily: "Nunito_700Bold", fontWeight: "700", color: COLORS.ink3, textTransform: "uppercase", letterSpacing: 1 }}>
+                  7-day trend
+                </Text>
+                {bestHour && (
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                    <Text style={{ fontSize: 11, color: COLORS.ink3 }}>Peak output</Text>
+                    <View style={{ backgroundColor: "#E4DBFF", borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 }}>
+                      <Text style={{ fontSize: 11, fontFamily: "Nunito_700Bold", fontWeight: "700", color: COLORS.primary }}>
+                        {bestHour}
+                      </Text>
+                    </View>
                   </View>
-                </View>
-              )}
-            </View>
-            <SparkLine
-              data={sparkData}
-              labels={sparkLabels}
-              width={SCREEN_W - 76}
-              height={88}
-              color={COLORS.primary}
-              fillColor="rgba(124,92,252,0.08)"
-              secondaryData={profile?.track_hydration && weeklyHydration.length === 7 ? weeklyHydration : undefined}
-            />
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 16, marginTop: 8 }}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                <View style={{ width: 18, height: 3, backgroundColor: COLORS.primary, borderRadius: 2 }} />
-                <Text style={{ fontSize: 10, color: COLORS.ink3 }}>Output</Text>
+                )}
               </View>
-              {profile?.track_hydration && weeklyHydration.some((v) => v > 0) && (
+              <SparkLine
+                data={sparkData}
+                labels={sparkLabels}
+                width={SCREEN_W - 76}
+                height={88}
+                color={COLORS.primary}
+                fillColor="rgba(124,92,252,0.08)"
+                secondaryData={profile?.track_hydration && weeklyHydration.length === 7 ? weeklyHydration : undefined}
+              />
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 16, marginTop: 8 }}>
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                  <View style={{ width: 18, height: 0, borderTopWidth: 1.5, borderTopColor: "#E8854A", borderStyle: "dashed" }} />
-                  <Text style={{ fontSize: 10, color: COLORS.ink3 }}>💧 Hydration</Text>
+                  <View style={{ width: 18, height: 3, backgroundColor: COLORS.primary, borderRadius: 2 }} />
+                  <Text style={{ fontSize: 10, color: COLORS.ink3 }}>Output</Text>
                 </View>
-              )}
+                {profile?.track_hydration && weeklyHydration.some((v) => v > 0) && (
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    <View style={{ width: 18, height: 0, borderTopWidth: 1.5, borderTopColor: "#E8854A", borderStyle: "dashed" }} />
+                    <Text style={{ fontSize: 10, color: COLORS.ink3 }}>💧 Hydration</Text>
+                  </View>
+                )}
+              </View>
             </View>
-          </View>
+          )}
 
           {/* ── Stats row ───────────────────────────────── */}
           <View style={{

@@ -35,6 +35,7 @@ export interface Profile {
   avatar_url: string | null;
   has_lactation_consultant: boolean | null;
   track_hydration: boolean;
+  simple_mode: boolean;
   created_at: string;
   updated_at: string;
 }

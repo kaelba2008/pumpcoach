@@ -178,6 +178,7 @@ export function SessionInsightSheet({
   babyAgeWeeks,
 }: SessionInsightProps) {
   const { profile } = useAuthStore();
+  const simpleMode = profile?.simple_mode ?? false;
   const { unit } = useUnit();
   const delta = getDeltaLabel(
     session.totalOz, avgOz, unit, pumpedAfterNursing,
@@ -194,7 +195,7 @@ export function SessionInsightSheet({
     pumpingContext,
     userId,
     accountCreatedAt,
-    isPremium && visible,
+    isPremium && visible && !simpleMode,
     babyAgeWeeks ?? 0,
   );
 
@@ -289,8 +290,8 @@ export function SessionInsightSheet({
             </View>
           </View>
 
-          {/* ── Premium analysis ──────────────────────── */}
-          {isPremium ? (
+          {/* ── Premium analysis — hidden in Simple Mode ── */}
+          {!simpleMode && (isPremium ? (
             <>
               {/* What it means */}
               <View style={{ backgroundColor: "#fff", borderRadius: 20, padding: 18, shadowColor: "#1A1A2E", shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 }}>
@@ -340,21 +341,6 @@ export function SessionInsightSheet({
                     Katie Clark, IBCLC · Pump Coach
                   </Text>
                 )}
-
-                {/* Pain callout */}
-                {session.painLevel !== null && session.painLevel >= 6 && (
-                  <View style={{ gap: 10, marginTop: 12 }}>
-                    <View style={{ backgroundColor: "#FFF0F5", borderRadius: 12, padding: 12, borderWidth: 1, borderColor: "#FFD6E7" }}>
-                      <Text style={{ fontSize: 13, fontFamily: "Nunito_600SemiBold", fontWeight: "600", color: COLORS.error, marginBottom: 4 }}>
-                        Pain noted this session
-                      </Text>
-                      <Text style={{ fontSize: 12, color: COLORS.ink2, lineHeight: 18 }}>
-                        Pain during pumping is almost always fixable. It usually signals a flange fit or suction issue. You should not have to push through it.
-                      </Text>
-                    </View>
-                    <ConsultRecommendation hasLactationConsultant={profile?.has_lactation_consultant ?? null} />
-                  </View>
-                )}
               </View>
             </>
           ) : (
@@ -364,6 +350,22 @@ export function SessionInsightSheet({
               description="See how this session compares to your average, duration tips, and personalized next-step guidance."
               unlocks={[]}
             />
+          ))}
+
+          {/* ── Pain callout — always shown, never gated by Simple Mode or
+               Premium. This is a safety signal, not a comparative stat. ── */}
+          {session.painLevel !== null && session.painLevel >= 6 && (
+            <View style={{ gap: 10 }}>
+              <View style={{ backgroundColor: "#FFF0F5", borderRadius: 12, padding: 12, borderWidth: 1, borderColor: "#FFD6E7" }}>
+                <Text style={{ fontSize: 13, fontFamily: "Nunito_600SemiBold", fontWeight: "600", color: COLORS.error, marginBottom: 4 }}>
+                  Pain noted this session
+                </Text>
+                <Text style={{ fontSize: 12, color: COLORS.ink2, lineHeight: 18 }}>
+                  Pain during pumping is almost always fixable. It usually signals a flange fit or suction issue. You should not have to push through it.
+                </Text>
+              </View>
+              <ConsultRecommendation hasLactationConsultant={profile?.has_lactation_consultant ?? null} />
+            </View>
           )}
 
           {/* ── Save to stash ─────────────────────────── */}

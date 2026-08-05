@@ -444,6 +444,10 @@ export default function ProfileScreen() {
     await save({ track_hydration: val });
   };
 
+  const handleSimpleModeToggle = async (val: boolean) => {
+    await save({ simple_mode: val });
+  };
+
   const tierLabel = isPremium ? "Premium" : "Free";
 
   const uid = user?.id ?? profile?.id ?? "";
@@ -1022,6 +1026,22 @@ export default function ProfileScreen() {
                 <Switch
                   value={profile?.track_hydration ?? false}
                   onValueChange={handleHydrationToggle}
+                  trackColor={{ false: COLORS.border, true: COLORS.primary }}
+                  thumbColor="#fff"
+                />
+              </View>
+
+              <Divider />
+              <View style={{ flexDirection: "row", alignItems: "center", paddingVertical: 14, gap: 12 }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 14, color: COLORS.ink }}>Simple mode</Text>
+                  <Text style={{ fontSize: 11, color: COLORS.ink3, marginTop: 2, lineHeight: 15 }}>
+                    Hide insights, trends, and comparisons — just log your sessions, no numbers to analyze
+                  </Text>
+                </View>
+                <Switch
+                  value={profile?.simple_mode ?? false}
+                  onValueChange={handleSimpleModeToggle}
                   trackColor={{ false: COLORS.border, true: COLORS.primary }}
                   thumbColor="#fff"
                 />
