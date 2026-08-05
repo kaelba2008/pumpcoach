@@ -210,6 +210,11 @@ export default function DashboardScreen() {
   const [sessions,           setSessions]           = useState<PumpSession[]>([]);
   const [stashOz,            setStashOz]            = useState<number>(0);
   const [nursingSessions,    setNursingSessions]    = useState<NursingSession[]>([]);
+  // Calendar dates (yyyy-MM-dd, local) with at least one nursing session in
+  // the same 7-day window as `sessions` — used to split the per-session avg
+  // stat into pump-only vs. nursing-day numbers so combo feeders see honest
+  // averages instead of one blended number that under-represents both.
+  const [weekNursedDates,    setWeekNursedDates]    = useState<Set<string>>(new Set());
   const [nursingOverride,    setNursingOverride]    = useState<string | null>(null);
   const [nursingModal,       setNursingModal]       = useState(false);
   const [editingNursing,     setEditingNursing]     = useState<NursingSession | null>(null);
@@ -247,7 +252,7 @@ export default function DashboardScreen() {
     const sessionQueryUserId = user.id;
     const sessionSinceDate = since;
 
-    const [sessionRes, stashRes, nursingRes, lifetimeRes] = await Promise.all([
+    const [sessionRes, stashRes, nursingRes, weekNursingRes, lifetimeRes] = await Promise.all([
       supabase
         .from("pump_sessions")
         .select("*")
@@ -265,6 +270,11 @@ export default function DashboardScreen() {
         .gte("nursed_at", todayISO)
         .order("nursed_at", { ascending: false }),
       supabase
+        .from("nursing_sessions")
+        .select("nursed_at")
+        .eq("user_id", user.id)
+        .gte("nursed_at", sessionSinceDate),
+      supabase
         .from("pump_sessions")
         .select("total_oz")
         .eq("user_id", sessionQueryUserId),
@@ -272,6 +282,11 @@ export default function DashboardScreen() {
     if (sessionRes.data) setSessions(sessionRes.data as PumpSession[]);
     if (stashRes.data)   setStashOz((stashRes.data as StashEntry[]).reduce((s, e) => s + (e.oz ?? 0), 0));
     if (nursingRes.data) setNursingSessions(nursingRes.data as NursingSession[]);
+    if (weekNursingRes.data) {
+      setWeekNursedDates(new Set(
+        (weekNursingRes.data as Pick<NursingSession, "nursed_at">[]).map((n) => format(new Date(n.nursed_at), "yyyy-MM-dd"))
+      ));
+    }
 
     // Milestone checks — fire async, don't block UI
     const { profile: p } = useAuthStore.getState();
@@ -332,6 +347,22 @@ export default function DashboardScreen() {
   const weekOz         = sessions.reduce((sum, s) => sum + (s.total_oz ?? 0), 0);
   const weekDailyAvg   = weekOz / 7;                                         // per day
   const perSessionAvg  = sessions.length > 0 ? weekOz / sessions.length : 0; // per session
+
+  // Combo feeders pump less on days they also nurse, since baby already
+  // removed some milk — blending those sessions into pump-only days'
+  // sessions produces one number that under-represents both. Split by
+  // whether nursing happened at all that calendar day; only show the
+  // split when there is real data on both sides, so exclusive pumpers see
+  // the same single average as always.
+  const pumpOnlyDaySessions   = sessions.filter((s) => !weekNursedDates.has(format(new Date(s.started_at), "yyyy-MM-dd")));
+  const nursingDaySessionsArr = sessions.filter((s) => weekNursedDates.has(format(new Date(s.started_at), "yyyy-MM-dd")));
+  const hasNursingSplit = pumpOnlyDaySessions.length > 0 && nursingDaySessionsArr.length > 0;
+  const pumpOnlyAvg   = pumpOnlyDaySessions.length > 0
+    ? pumpOnlyDaySessions.reduce((sum, s) => sum + (s.total_oz ?? 0), 0) / pumpOnlyDaySessions.length
+    : 0;
+  const nursingDayAvg = nursingDaySessionsArr.length > 0
+    ? nursingDaySessionsArr.reduce((sum, s) => sum + (s.total_oz ?? 0), 0) / nursingDaySessionsArr.length
+    : 0;
 
   const goalOz         = profile?.daily_goal_oz ?? null;
   const goalPct        = goalOz && goalOz > 0 ? Math.min(1, todayOz / goalOz) : null;
@@ -654,21 +685,37 @@ export default function DashboardScreen() {
             shadowColor: "#1A1A2E", shadowOpacity: 0.05, shadowRadius: 8, elevation: 2,
             overflow: "hidden",
           }}>
-            {[
-              { label: "Per session avg", value: formatUnit(perSessionAvg, unit), sub: "last 7 days" },
-              { label: "Stash total", value: formatUnit(stashOz, unit), sub: "in storage" },
-            ].map(({ label, value, sub }, idx) => (
-              <React.Fragment key={label}>
-                {idx > 0 && <View style={{ width: 1, backgroundColor: COLORS.border, marginVertical: 16 }} />}
-                <View style={{ flex: 1, padding: 16 }}>
-                  <Text style={{ fontSize: 10, fontFamily: "Nunito_700Bold", fontWeight: "700", color: COLORS.ink3, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>
-                    {label}
+            <View style={{ flex: 1, padding: 16 }}>
+              <Text style={{ fontSize: 10, fontFamily: "Nunito_700Bold", fontWeight: "700", color: COLORS.ink3, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>
+                Per session avg
+              </Text>
+              {hasNursingSplit ? (
+                <>
+                  <Text style={{ fontSize: 24, fontFamily: "Nunito_800ExtraBold", fontWeight: "800", color: COLORS.ink }}>
+                    {formatUnit(pumpOnlyAvg, unit)}
                   </Text>
-                  <Text style={{ fontSize: 24, fontFamily: "Nunito_800ExtraBold", fontWeight: "800", color: COLORS.ink }}>{value}</Text>
-                  <Text style={{ fontSize: 11, color: COLORS.ink3, marginTop: 2 }}>{sub}</Text>
-                </View>
-              </React.Fragment>
-            ))}
+                  <Text style={{ fontSize: 11, color: COLORS.ink3, marginTop: 2 }}>pump-only days</Text>
+                  <Text style={{ fontSize: 12, color: COLORS.ink2, marginTop: 6, fontFamily: "Nunito_600SemiBold", fontWeight: "600" }}>
+                    {formatUnit(nursingDayAvg, unit)} <Text style={{ fontSize: 11, color: COLORS.ink3, fontFamily: "Nunito_400Regular", fontWeight: "400" }}>on nursing days</Text>
+                  </Text>
+                </>
+              ) : (
+                <>
+                  <Text style={{ fontSize: 24, fontFamily: "Nunito_800ExtraBold", fontWeight: "800", color: COLORS.ink }}>
+                    {formatUnit(perSessionAvg, unit)}
+                  </Text>
+                  <Text style={{ fontSize: 11, color: COLORS.ink3, marginTop: 2 }}>last 7 days</Text>
+                </>
+              )}
+            </View>
+            <View style={{ width: 1, backgroundColor: COLORS.border, marginVertical: 16 }} />
+            <View style={{ flex: 1, padding: 16 }}>
+              <Text style={{ fontSize: 10, fontFamily: "Nunito_700Bold", fontWeight: "700", color: COLORS.ink3, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>
+                Stash total
+              </Text>
+              <Text style={{ fontSize: 24, fontFamily: "Nunito_800ExtraBold", fontWeight: "800", color: COLORS.ink }}>{formatUnit(stashOz, unit)}</Text>
+              <Text style={{ fontSize: 11, color: COLORS.ink3, marginTop: 2 }}>in storage</Text>
+            </View>
           </View>
 
           {/* ── Hydration tracker (opt-in) ───────────────── */}
