@@ -174,11 +174,17 @@ consistently deliver on it.
       numbers.
 - [ ] **Weaning mode** — guided session-dropping plan; big feature, needs
       IBCLC-driven spec from Katie.
-- [ ] **Simple mode toggle** — a tester stopped tracking entirely because
-      the numbers/analytics were causing anxiety. Add a Profile setting
-      that hides Session Insights, quality score, and trend/efficiency
-      stats everywhere they appear (home, session detail, Coach tab),
-      leaving just the core log: time, output, notes.
+- [x] **Simple mode toggle** — DONE (Aug 4, 2026): new `profiles.simple_mode`,
+      toggled from Profile right next to the hydration setting. Hides the
+      home screen's Session Analysis status card, Coach card/premium-teaser
+      insight slot, and 7-day trend chart + Peak Output badge — Recent
+      Sessions (time, output, notes) stays as the core log. Post-session
+      sheet hides the comparison-to-average and AI "what to do next" cards
+      (and skips generating that AI text at all rather than fetching and
+      discarding it) but keeps the header stats and plain "what happened"
+      breakdown, since those are the record itself, not analysis of it.
+      Pain callout + IBCLC consult recommendation are deliberately NEVER
+      gated by Simple Mode (or Premium) — safety signal, not a stat.
 
 ## Cleanups deferred from 1.0
 
