@@ -540,11 +540,11 @@ export default function SnapshotScreen() {
       const since90 = subDays(new Date(), 90).toISOString();
 
       const [sessionRes, stashRes, pumpsRes, viewersRes, flangeSessionsRes, nursingRes] = await Promise.all([
-        supabase.from("pump_sessions").select("*").gte("started_at", since14).order("started_at", { ascending: false }),
-        supabase.from("stash_entries").select("oz").is("used_at", null).is("discarded_at", null),
+        supabase.from("pump_sessions").select("*").eq("user_id", user.id).gte("started_at", since14).order("started_at", { ascending: false }),
+        supabase.from("stash_entries").select("oz").eq("user_id", user.id).is("used_at", null).is("discarded_at", null),
         supabase.from("user_pumps").select("id").eq("user_id", user.id),
         supabase.from("viewer_accounts").select("*").eq("owner_id", user.id),
-        supabase.from("pump_sessions").select("started_at, total_oz, flange_size_mm").gte("started_at", since90).not("flange_size_mm", "is", null),
+        supabase.from("pump_sessions").select("started_at, total_oz, flange_size_mm").eq("user_id", user.id).gte("started_at", since90).not("flange_size_mm", "is", null),
         supabase.from("nursing_sessions").select("nursed_at").eq("user_id", user.id).gte("nursed_at", since7),
       ]);
       setPumpCount((pumpsRes.data ?? []).length);

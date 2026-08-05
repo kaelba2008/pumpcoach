@@ -83,12 +83,14 @@ export default function CoachScreen() {
     const { data: sessions } = await supabase
       .from("pump_sessions")
       .select("started_at, total_oz, duration_sec")
+      .eq("user_id", user.id)
       .gte("started_at", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
       .order("started_at", { ascending: false });
 
     const { data: stash } = await supabase
       .from("stash_entries")
       .select("oz")
+      .eq("user_id", user.id)
       .is("used_at", null)
       .is("discarded_at", null);
 

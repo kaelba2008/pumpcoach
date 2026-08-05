@@ -754,8 +754,8 @@ export default function ProfileScreen() {
 
   const handleExport = async () => {
     setExporting(true);
-    const { data: sessions } = await supabase.from("pump_sessions").select("*").order("started_at", { ascending: false });
-    const { data: stash }    = await supabase.from("stash_entries").select("*").order("expressed_at", { ascending: false });
+    const { data: sessions } = await supabase.from("pump_sessions").select("*").eq("user_id", user!.id).order("started_at", { ascending: false });
+    const { data: stash }    = await supabase.from("stash_entries").select("*").eq("user_id", user!.id).order("expressed_at", { ascending: false });
     setExporting(false);
 
     if (!sessions && !stash) { Alert.alert("Nothing to export yet."); return; }
