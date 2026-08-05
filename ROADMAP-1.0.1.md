@@ -174,12 +174,25 @@ consistently deliver on it.
       separately whenever a mom has real data on both sides in the last 7
       days (split by whether nursing_sessions has any entry that calendar
       date) — exclusive pumpers see the same single number as before.
-      NOTE: Supply tab (`snapshot.tsx`) has the same blended-average issue
-      in `avg7dayPerSession`, more deeply wired (PDF export, email-to-LC
-      share text, StatPill, detail row) and arguably higher-stakes since
-      that PDF goes to real IBCLCs for clinical decisions. Deliberately
-      not touched yet — flagged for Katie to decide as its own follow-up
-      rather than done as a rushed extension of this one.
+      Supply tab follow-up DONE (Aug 4, 2026): same split extended to
+      `avg7dayPerSession` and propagated to every place it appears — the
+      in-app detail row, the PDF export, and the email-to-LC share text.
+      Same fallback rule — single blended average when there isn't real
+      data on both sides.
+
+- [x] **Removal rate (oz/hr)** — DONE (Aug 4, 2026), Katie's idea from an
+      actual client conversation: when a mom is dropping session count, the
+      thing that actually matters is whether her total removal rate holds
+      steady, not the session count itself. Deliberately NOT the same
+      "oz/hr" metric killed earlier this session (that one extrapolated
+      from a single session's active pumping minutes, wildly volatile for
+      a short session) — this is total pumped oz over a rolling 24h window
+      divided by a fixed 24, so it can't be distorted by session length.
+      Only shown once there are 5+ total removal events (pump + nursing
+      sessions) in that window — nursing counts toward reliability since
+      it's a real removal event, but its volume is unquantified and never
+      added into the oz numerator itself. Shown on the Supply tab card, the
+      PDF export, and the email-to-LC text.
 - [ ] **Weaning mode** — guided session-dropping plan; big feature, needs
       IBCLC-driven spec from Katie.
 - [x] **Simple mode toggle** — DONE (Aug 4, 2026): new `profiles.simple_mode`,
