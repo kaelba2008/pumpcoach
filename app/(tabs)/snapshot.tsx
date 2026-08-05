@@ -15,7 +15,7 @@ import { useAuthStore } from "../../store/authStore";
 import { COLORS, SERIF, GRADIENTS } from "../../lib/constants";
 import { fmtOz } from "../../lib/formatters";
 import { primaryBaby } from "../../lib/babies";
-import { PumpSession, StashEntry, ViewerAccount } from "../../types";
+import { PumpSession, StashEntry, ViewerAccount, NursingSession } from "../../types";
 import { PremiumTeaser } from "../../components/ui/PremiumTeaser";
 import { computeSupplyTrend, computeValueTrend } from "../../lib/patternDetection";
 
@@ -37,6 +37,24 @@ interface SupplyIntelligence {
   rolling24hOz: number;
   avg7dayPerDay: number;
   avg7dayPerSession: number;
+  // Combo feeders pump less on days they also nurse — blending those
+  // sessions into pump-only days' sessions produces one number that
+  // under-represents both. Only set (non-null) when there is real data on
+  // both sides of the split in the 7-day window; null means "not enough
+  // data to split honestly," and callers should fall back to
+  // avg7dayPerSession.
+  avg7daySessionPumpOnly: number | null;
+  avg7daySessionNursingDay: number | null;
+  // Total oz pumped in the last 24h, divided by 24 — a stable rate (fixed
+  // denominator, unlike a per-session extrapolation) useful for confirming
+  // output holds steady through a session-count change. Null below the
+  // reliability threshold. Nursing sessions count toward that threshold
+  // (a combo feeder removing milk 6x/day via nursing+pumping has a
+  // trustworthy number even with few pump sessions) but are not, and
+  // cannot be, added into the oz numerator — nursing volume isn't
+  // quantified.
+  hourlyRate: number | null;
+  hourlyRateNursingCount: number;
   sessionCountToday: number;
   sessionCount7day: number;
   sessionsPerDay7day: number;
@@ -408,6 +426,11 @@ function buildReportHTML(d: SupplyIntelligence, parentName: string | null, babyN
         <div class="stat-value">${fmtOz(d.avg7dayPerDay)}</div>
         <div class="stat-label">7-day avg/day</div>
       </div>
+      ${d.hourlyRate !== null ? `
+      <div class="stat-card">
+        <div class="stat-value">${fmtOz(d.hourlyRate)}/hr</div>
+        <div class="stat-label">Removal rate</div>
+      </div>` : ""}
     </div>
   </div>
 
@@ -418,10 +441,19 @@ function buildReportHTML(d: SupplyIntelligence, parentName: string | null, babyN
       <span class="row-key">Sessions (7 days)</span>
       <span class="row-val">${d.sessionCount7day} (${d.sessionsPerDay7day.toFixed(1)}/day)</span>
     </div>
+    ${d.avg7daySessionPumpOnly !== null && d.avg7daySessionNursingDay !== null ? `
+    <div class="row-card">
+      <span class="row-key">Avg per session (pump-only days)</span>
+      <span class="row-val">${fmtOz(d.avg7daySessionPumpOnly)}</span>
+    </div>
+    <div class="row-card">
+      <span class="row-key">Avg per session (nursing days)</span>
+      <span class="row-val">${fmtOz(d.avg7daySessionNursingDay)}</span>
+    </div>` : `
     <div class="row-card">
       <span class="row-key">Avg per session</span>
       <span class="row-val">${fmtOz(d.avg7dayPerSession)}</span>
-    </div>
+    </div>`}
     <div class="row-card">
       <span class="row-key">Consistency score</span>
       <span class="row-val">${d.consistencyLabel} (${d.consistencyScore}/100)</span>
@@ -507,12 +539,13 @@ export default function SnapshotScreen() {
       // recently, so this looks back 90 days on its own.
       const since90 = subDays(new Date(), 90).toISOString();
 
-      const [sessionRes, stashRes, pumpsRes, viewersRes, flangeSessionsRes] = await Promise.all([
+      const [sessionRes, stashRes, pumpsRes, viewersRes, flangeSessionsRes, nursingRes] = await Promise.all([
         supabase.from("pump_sessions").select("*").gte("started_at", since14).order("started_at", { ascending: false }),
         supabase.from("stash_entries").select("oz").is("used_at", null).is("discarded_at", null),
         supabase.from("user_pumps").select("id").eq("user_id", user.id),
         supabase.from("viewer_accounts").select("*").eq("owner_id", user.id),
         supabase.from("pump_sessions").select("started_at, total_oz, flange_size_mm").gte("started_at", since90).not("flange_size_mm", "is", null),
+        supabase.from("nursing_sessions").select("nursed_at").eq("user_id", user.id).gte("nursed_at", since7),
       ]);
       setPumpCount((pumpsRes.data ?? []).length);
       const viewerList = (viewersRes.data ?? []) as ViewerAccount[];
@@ -536,6 +569,27 @@ export default function SnapshotScreen() {
       const avg7dayPerDay = total7day / 7;
       const avg7dayPerSession = sessions7.length ? total7day / sessions7.length : 0;
       const stashOz = ((stashRes.data ?? []) as StashEntry[]).reduce((s, e) => s + (e.oz ?? 0), 0);
+
+      // Split per-session avg by nursing day — see field comments above.
+      const nursing7 = (nursingRes.data ?? []) as Pick<NursingSession, "nursed_at">[];
+      const weekNursedDates = new Set(nursing7.map((n) => format(new Date(n.nursed_at), "yyyy-MM-dd")));
+      const pumpOnlyDaySessions   = sessions7.filter((s) => !weekNursedDates.has(format(new Date(s.started_at), "yyyy-MM-dd")));
+      const nursingDaySessionsArr = sessions7.filter((s) => weekNursedDates.has(format(new Date(s.started_at), "yyyy-MM-dd")));
+      const hasNursingSplit = pumpOnlyDaySessions.length > 0 && nursingDaySessionsArr.length > 0;
+      const avg7daySessionPumpOnly = hasNursingSplit
+        ? pumpOnlyDaySessions.reduce((s, x) => s + (x.total_oz ?? 0), 0) / pumpOnlyDaySessions.length
+        : null;
+      const avg7daySessionNursingDay = hasNursingSplit
+        ? nursingDaySessionsArr.reduce((s, x) => s + (x.total_oz ?? 0), 0) / nursingDaySessionsArr.length
+        : null;
+
+      // Removal rate — total pumped oz in the last 24h / 24. Nursing
+      // sessions in that same window count toward the reliability
+      // threshold (real removal events, just unquantified in oz) but never
+      // get added into the oz numerator itself.
+      const nursing24Count = nursing7.filter((n) => n.nursed_at >= since24).length;
+      const totalRemovals24h = sessions24.length + nursing24Count;
+      const hourlyRate = totalRemovals24h >= 5 ? rolling24hOz / 24 : null;
 
       const { score: consistencyScore, label: consistencyLabel } = computeConsistency(
         sessions7,
@@ -567,6 +621,10 @@ export default function SnapshotScreen() {
         rolling24hOz,
         avg7dayPerDay,
         avg7dayPerSession,
+        avg7daySessionPumpOnly,
+        avg7daySessionNursingDay,
+        hourlyRate,
+        hourlyRateNursingCount: nursing24Count,
         sessionCountToday: sessionsToday.length,
         sessionCount7day:  sessions7.length,
         sessionsPerDay7day: sessions7.length / 7,
@@ -663,6 +721,10 @@ export default function SnapshotScreen() {
       `• Today's output: ${fmtOz(data.todayOz)}\n` +
       `• 24-hour rolling: ${fmtOz(data.rolling24hOz)}\n` +
       `• 7-day daily avg: ${fmtOz(data.avg7dayPerDay)}\n` +
+      (data.hourlyRate !== null ? `• Removal rate: ${fmtOz(data.hourlyRate)}/hr\n` : "") +
+      (data.avg7daySessionPumpOnly !== null && data.avg7daySessionNursingDay !== null
+        ? `• Avg per session: ${fmtOz(data.avg7daySessionPumpOnly)} pump-only days, ${fmtOz(data.avg7daySessionNursingDay)} nursing days\n`
+        : "") +
       `• Sessions/day: ${data.sessionsPerDay7day.toFixed(1)}\n` +
       `• Consistency: ${data.consistencyLabel} (${data.consistencyScore}/100)\n` +
       `• Trend: ${data.trend}\n` +
@@ -749,6 +811,23 @@ export default function SnapshotScreen() {
                   <StatPill label="Sessions/day" value={data.sessionsPerDay7day.toFixed(1)} />
                 </View>
               </Card>
+
+              {/* ── Removal rate — FREE, only shown once reliable ── */}
+              {data.hourlyRate !== null && (
+                <Card>
+                  <SectionLabel>Removal rate</SectionLabel>
+                  <Text style={{ fontFamily: SERIF, fontSize: 28, color: COLORS.ink, marginTop: 4 }}>
+                    {fmtOz(data.hourlyRate)}/hr
+                  </Text>
+                  <Text style={{ fontSize: 12, color: COLORS.ink2, marginTop: 6, lineHeight: 17 }}>
+                    Pumped output over the last 24 hours, divided evenly across the day
+                    {data.hourlyRateNursingCount > 0
+                      ? ` (plus ${data.hourlyRateNursingCount} nursing session${data.hourlyRateNursingCount === 1 ? "" : "s"} in that window)`
+                      : ""}
+                    . Useful for confirming this holds steady if session count changes — a real drop here matters more than fewer sessions on their own.
+                  </Text>
+                </Card>
+              )}
 
               {/* ── Stash summary — FREE ── */}
               {data.stashOz > 0 && (
@@ -874,12 +953,29 @@ export default function SnapshotScreen() {
                         </View>
                       </View>
 
-                      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                        <Text style={{ fontSize: 13, color: COLORS.ink2 }}>Avg per session</Text>
-                        <Text style={{ fontSize: 13, fontFamily: "Nunito_700Bold", fontWeight: "700", color: COLORS.ink }}>
-                          {fmtOz(data.avg7dayPerSession)}
-                        </Text>
-                      </View>
+                      {data.avg7daySessionPumpOnly !== null && data.avg7daySessionNursingDay !== null ? (
+                        <>
+                          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                            <Text style={{ fontSize: 13, color: COLORS.ink2 }}>Avg per session (pump-only days)</Text>
+                            <Text style={{ fontSize: 13, fontFamily: "Nunito_700Bold", fontWeight: "700", color: COLORS.ink }}>
+                              {fmtOz(data.avg7daySessionPumpOnly)}
+                            </Text>
+                          </View>
+                          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                            <Text style={{ fontSize: 13, color: COLORS.ink2 }}>Avg per session (nursing days)</Text>
+                            <Text style={{ fontSize: 13, fontFamily: "Nunito_700Bold", fontWeight: "700", color: COLORS.ink }}>
+                              {fmtOz(data.avg7daySessionNursingDay)}
+                            </Text>
+                          </View>
+                        </>
+                      ) : (
+                        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                          <Text style={{ fontSize: 13, color: COLORS.ink2 }}>Avg per session</Text>
+                          <Text style={{ fontSize: 13, fontFamily: "Nunito_700Bold", fontWeight: "700", color: COLORS.ink }}>
+                            {fmtOz(data.avg7dayPerSession)}
+                          </Text>
+                        </View>
+                      )}
 
                       {data.goalOz && (
                         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
