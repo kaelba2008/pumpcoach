@@ -174,6 +174,55 @@ export function computeSupplyTrend(
   return computeValueTrend(sessions, s => s.total_oz ?? 0);
 }
 
+// Trend for a metric that's naturally a DAILY total (e.g. removal rate,
+// which is total pumped oz per rolling 24h) rather than a per-session
+// value. Averaging per-session total_oz (what computeValueTrend does)
+// would answer "are individual sessions getting bigger or smaller," a
+// different question from "is the total removed per day holding up" —
+// this answers the latter. Same last-5-days-vs-prior-5-days window and
+// ±10% threshold as computeValueTrend, for consistency, but averages
+// per-DAY totals instead of per-session ones. Dividing by a fixed
+// constant (24, for removal rate) doesn't change a percentage trend, so
+// this works directly on raw pumped oz without needing the /24 applied.
+export function computeDailyTotalTrend(
+  sessions: { started_at: string; total_oz: number | null }[],
+): SupplyTrendResult {
+  const now = new Date();
+  const last5Start = new Date(now);
+  last5Start.setDate(last5Start.getDate() - 5);
+  const prior5Start = new Date(now);
+  prior5Start.setDate(prior5Start.getDate() - 10);
+  const prior5End = new Date(now);
+  prior5End.setDate(prior5End.getDate() - 5);
+
+  const dailyTotal = (items: typeof sessions) => {
+    const map = new Map<string, number>();
+    for (const s of items) {
+      const k = dateKey(s.started_at);
+      map.set(k, (map.get(k) ?? 0) + (s.total_oz ?? 0));
+    }
+    return Array.from(map.values());
+  };
+
+  const last5Totals = dailyTotal(sessions.filter(s => new Date(s.started_at) >= last5Start));
+  const prior5Totals = dailyTotal(sessions.filter(s => {
+    const t = new Date(s.started_at);
+    return t >= prior5Start && t < prior5End;
+  }));
+
+  if (last5Totals.length < 3 || prior5Totals.length < 3) {
+    return { trend: "stable", changePct: 0, insufficientData: true };
+  }
+
+  const recentAvg = average(last5Totals);
+  const priorAvg = average(prior5Totals);
+  const changePct = priorAvg > 0 ? ((recentAvg - priorAvg) / priorAvg) * 100 : 0;
+
+  if (changePct <= -10) return { trend: "declining", changePct, insufficientData: false };
+  if (changePct >= 10)  return { trend: "improving", changePct, insufficientData: false };
+  return { trend: "stable", changePct, insufficientData: false };
+}
+
 // ── Main detector ─────────────────────────────────────────────────────────────
 
 export function detectPatterns(

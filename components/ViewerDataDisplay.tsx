@@ -4,6 +4,8 @@ import { format, startOfDay, subDays } from "date-fns";
 import { PumpSession, NursingSession } from "../types";
 import { COLORS, SERIF, MIN_MEANINGFUL_SESSION_SEC } from "../lib/constants";
 import { formatUnit } from "../lib/units";
+import { removalRateTrendLabel } from "../lib/formatters";
+import { computeDailyTotalTrend } from "../lib/patternDetection";
 import { SparkLine } from "./ui/SparkLine";
 
 interface ViewerDataDisplayProps {
@@ -115,6 +117,9 @@ export function ViewerDataDisplay({ sessions, nursingSessions = [], personInitia
     const rolling24hOz = sessions24h.reduce((sum, s) => sum + (s.total_oz ?? 0), 0);
     const totalRemovals24h = sessions24h.length + nursing24hCount;
     const hourlyRate = totalRemovals24h >= 5 ? rolling24hOz / 24 : null;
+    const removalRateTrend = hourlyRate !== null
+      ? removalRateTrendLabel(computeDailyTotalTrend(sessions))
+      : null;
 
     // Build 7-day (or full range) sparkline data
     const endDate = new Date();
@@ -148,6 +153,7 @@ export function ViewerDataDisplay({ sessions, nursingSessions = [], personInitia
       typicalSessionOzNursingDay: typicalSessionOzNursingDay != null ? Math.round(typicalSessionOzNursingDay * 100) / 100 : null,
       hourlyRate: hourlyRate != null ? Math.round(hourlyRate * 100) / 100 : null,
       hourlyRateNursingCount: nursing24hCount,
+      removalRateTrend,
       avgPerDay: Math.round(avgPerDay * 100) / 100,
       sparkData,
       sparkLabels,
@@ -262,9 +268,16 @@ export function ViewerDataDisplay({ sessions, nursingSessions = [], personInitia
           <Text style={{ fontSize: 11, color: COLORS.ink3, marginBottom: 4, fontWeight: "600" }}>
             Removal Rate
           </Text>
-          <Text style={{ fontSize: 18, fontWeight: "700", color: COLORS.primary }}>
-            {formatUnit(analysis.hourlyRate, unit)}/hr
-          </Text>
+          <View style={{ flexDirection: "row", alignItems: "baseline", gap: 8 }}>
+            <Text style={{ fontSize: 18, fontWeight: "700", color: COLORS.primary }}>
+              {formatUnit(analysis.hourlyRate, unit)}/hr
+            </Text>
+            {analysis.removalRateTrend && (
+              <Text style={{ fontSize: 12, color: COLORS.ink3 }}>
+                {analysis.removalRateTrend.arrow} {analysis.removalRateTrend.text}
+              </Text>
+            )}
+          </View>
           <Text style={{ fontSize: 11, color: COLORS.ink3, marginTop: 4, lineHeight: 15 }}>
             Pumped output over the last 24 hours, divided evenly across the day
             {analysis.hourlyRateNursingCount > 0

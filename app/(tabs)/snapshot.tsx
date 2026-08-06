@@ -13,11 +13,11 @@ import { format, subDays, differenceInDays, differenceInHours, startOfDay } from
 import { supabase } from "../../lib/supabase";
 import { useAuthStore } from "../../store/authStore";
 import { COLORS, SERIF, GRADIENTS } from "../../lib/constants";
-import { fmtOz } from "../../lib/formatters";
+import { fmtOz, removalRateTrendLabel } from "../../lib/formatters";
 import { primaryBaby } from "../../lib/babies";
 import { PumpSession, StashEntry, ViewerAccount, NursingSession } from "../../types";
 import { PremiumTeaser } from "../../components/ui/PremiumTeaser";
-import { computeSupplyTrend, computeValueTrend } from "../../lib/patternDetection";
+import { computeSupplyTrend, computeValueTrend, computeDailyTotalTrend } from "../../lib/patternDetection";
 import { dayTypeForDate, dayTypeForISO } from "../../lib/schedule";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -56,6 +56,11 @@ interface SupplyIntelligence {
   // quantified.
   hourlyRate: number | null;
   hourlyRateNursingCount: number;
+  /** Gentle, neutral trend for the removal rate — "is it increasing,
+   *  steady, or decreasing" over the last several days. Not a value
+   *  judgment (decreasing isn't automatically "bad") and null whenever
+   *  there isn't enough day-level history yet to say anything meaningful. */
+  removalRateTrend: ReturnType<typeof removalRateTrendLabel>;
   sessionCountToday: number;
   sessionCount7day: number;
   sessionsPerDay7day: number;
@@ -616,6 +621,9 @@ export default function SnapshotScreen() {
       const nursing24Count = nursing7.filter((n) => n.nursed_at >= since24).length;
       const totalRemovals24h = sessions24.length + nursing24Count;
       const hourlyRate = totalRemovals24h >= 5 ? rolling24hOz / 24 : null;
+      const removalRateTrend = hourlyRate !== null
+        ? removalRateTrendLabel(computeDailyTotalTrend(sessions14))
+        : null;
 
       const { score: consistencyScore, label: consistencyLabel } = computeConsistency(
         sessions7,
@@ -674,6 +682,7 @@ export default function SnapshotScreen() {
         avg7daySessionNursingDay,
         hourlyRate,
         hourlyRateNursingCount: nursing24Count,
+        removalRateTrend,
         sessionCountToday: sessionsToday.length,
         sessionCount7day:  sessions7.length,
         sessionsPerDay7day: sessions7.length / 7,
@@ -865,9 +874,16 @@ export default function SnapshotScreen() {
               {data.hourlyRate !== null && (
                 <Card>
                   <SectionLabel>Removal rate</SectionLabel>
-                  <Text style={{ fontFamily: SERIF, fontSize: 28, color: COLORS.ink, marginTop: 4 }}>
-                    {fmtOz(data.hourlyRate)}/hr
-                  </Text>
+                  <View style={{ flexDirection: "row", alignItems: "baseline", gap: 8, marginTop: 4 }}>
+                    <Text style={{ fontFamily: SERIF, fontSize: 28, color: COLORS.ink }}>
+                      {fmtOz(data.hourlyRate)}/hr
+                    </Text>
+                    {data.removalRateTrend && (
+                      <Text style={{ fontSize: 13, color: COLORS.ink3 }}>
+                        {data.removalRateTrend.arrow} {data.removalRateTrend.text}
+                      </Text>
+                    )}
+                  </View>
                   <Text style={{ fontSize: 12, color: COLORS.ink2, marginTop: 6, lineHeight: 17 }}>
                     Pumped output over the last 24 hours, divided evenly across the day
                     {data.hourlyRateNursingCount > 0

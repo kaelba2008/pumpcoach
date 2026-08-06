@@ -1,5 +1,19 @@
 import { format, formatDistanceToNow } from "date-fns";
 
+// Gentle, neutral wording for the removal-rate trend indicator —
+// deliberately "increasing/steady/decreasing," not "improving/declining."
+// Removal rate going down isn't inherently bad (weaning, a lower-supply
+// baby, etc.) so this stays descriptive, not a value judgment; same
+// reasoning behind the muted color used wherever this is rendered.
+export function removalRateTrendLabel(
+  trend: { trend: "improving" | "stable" | "declining"; insufficientData: boolean },
+): { arrow: string; text: string } | null {
+  if (trend.insufficientData) return null;
+  if (trend.trend === "improving") return { arrow: "↗", text: "Increasing over the last few days" };
+  if (trend.trend === "declining") return { arrow: "↘", text: "Decreasing over the last few days" };
+  return { arrow: "→", text: "Holding steady" };
+}
+
 export const fmtOz = (oz: number | null | undefined): string => {
   if (oz == null) return "—";
   return `${oz % 1 === 0 ? oz.toFixed(0) : oz.toFixed(1)} oz`;
