@@ -616,6 +616,8 @@ export default function DashboardScreen() {
                   userId={profile?.id ?? ""}
                   accountCreatedAt={profile?.created_at ?? new Date().toISOString()}
                   skipGapAlerts={skipGapAlerts}
+                  scheduleEnabled={profile?.schedule_enabled ?? false}
+                  scheduleAwayDays={profile?.schedule_away_days ?? []}
                 />
               ) : (
                 <PremiumTeaser

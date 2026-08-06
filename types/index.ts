@@ -36,6 +36,8 @@ export interface Profile {
   has_lactation_consultant: boolean | null;
   track_hydration: boolean;
   simple_mode: boolean;
+  schedule_enabled: boolean;
+  schedule_away_days: number[];
   created_at: string;
   updated_at: string;
 }

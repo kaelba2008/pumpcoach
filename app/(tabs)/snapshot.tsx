@@ -18,6 +18,7 @@ import { primaryBaby } from "../../lib/babies";
 import { PumpSession, StashEntry, ViewerAccount, NursingSession } from "../../types";
 import { PremiumTeaser } from "../../components/ui/PremiumTeaser";
 import { computeSupplyTrend, computeValueTrend } from "../../lib/patternDetection";
+import { dayTypeForDate, dayTypeForISO } from "../../lib/schedule";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -193,7 +194,7 @@ function dailyCountsArray(sessions: PumpSession[]): number[] {
   return Array.from(map.values());
 }
 
-function computeConsistency(
+function computeConsistencyCore(
   sessions7: PumpSession[],
   sessions14: PumpSession[],
   accountCreatedAt: string,
@@ -256,6 +257,31 @@ function computeConsistency(
   return scoreLabel(Math.round(Math.max(0, Math.min(100, 100 - cv * 80))));
 }
 
+// Weekly Schedule aware wrapper — when today has a declared day-type and
+// there's enough same-type history, benchmark consistency against her own
+// same-type days (home vs home, away vs away) instead of the blended week.
+// A mom who alternates by design shouldn't have that alternation itself
+// read as "inconsistent." Falls back to the blended calc when the
+// schedule is off, or there isn't enough same-type history yet.
+function computeConsistency(
+  sessions7: PumpSession[],
+  sessions14: PumpSession[],
+  accountCreatedAt: string,
+  scheduleEnabled = false,
+  scheduleAwayDays: number[] = [],
+): { score: number; label: string } {
+  const todayType = dayTypeForDate(scheduleEnabled, scheduleAwayDays, new Date());
+  if (todayType) {
+    const sameType = (s: PumpSession) =>
+      dayTypeForISO(scheduleEnabled, scheduleAwayDays, s.started_at) === todayType;
+    const sameType7 = sessions7.filter(sameType);
+    const sameType14 = sessions14.filter(sameType);
+    if (sameType14.length >= 4 && sameType7.length >= 2) {
+      return computeConsistencyCore(sameType7, sameType14, accountCreatedAt);
+    }
+  }
+  return computeConsistencyCore(sessions7, sessions14, accountCreatedAt);
+}
 
 function computeSupplyStatus(
   rolling24h: number,
@@ -595,12 +621,35 @@ export default function SnapshotScreen() {
         sessions7,
         sessions14,
         profile?.created_at ?? new Date().toISOString(),
+        profile?.schedule_enabled ?? false,
+        profile?.schedule_away_days ?? [],
       );
       // Shared with the pattern-detection insight engine (lib/patternDetection.ts)
       // so this screen and the AI-generated insights never disagree about
       // whether supply is trending up, down, or holding steady.
       const { trend } = computeSupplyTrend(sessions14);
-      const supplyStatus = computeSupplyStatus(rolling24hOz, avg7dayPerDay, trend, consistencyScore);
+
+      // Weekly Schedule aware: if today has a declared day-type and there's
+      // enough same-type history, compare today's rolling total against her
+      // own same-type average rather than the blended week — otherwise a
+      // home day always looks like a "dip" against an away-day-inflated
+      // weekly average (and vice versa).
+      let avgForSupplyStatus = avg7dayPerDay;
+      const todayScheduleType = dayTypeForDate(profile?.schedule_enabled, profile?.schedule_away_days, new Date());
+      if (todayScheduleType) {
+        const sameType = (s: PumpSession) =>
+          dayTypeForISO(profile?.schedule_enabled, profile?.schedule_away_days, s.started_at) === todayScheduleType;
+        const typedDailyTotals = new Map<string, number>();
+        sessions14.filter(sameType).forEach((s) => {
+          const k = s.started_at.slice(0, 10);
+          typedDailyTotals.set(k, (typedDailyTotals.get(k) ?? 0) + (s.total_oz ?? 0));
+        });
+        const typedDays = Array.from(typedDailyTotals.values());
+        if (typedDays.length >= 2) {
+          avgForSupplyStatus = typedDays.reduce((a, b) => a + b, 0) / typedDays.length;
+        }
+      }
+      const supplyStatus = computeSupplyStatus(rolling24hOz, avgForSupplyStatus, trend, consistencyScore);
       const guidanceLevel = computeGuidance(supplyStatus, sessions7.filter((s) => (s.pain_level ?? 0) >= 6).length);
       const stage = getPostpartumStage(primaryBaby(babies)?.dob ?? null);
       const flangeChange = detectFlangeChange(flangeSessionsRes.data ?? []);

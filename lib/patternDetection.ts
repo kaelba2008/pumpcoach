@@ -8,6 +8,8 @@
  *   needs_attention > mild > celebratory > informational
  */
 
+import { dayTypeForDate, dayTypeForISO, DayType } from "./schedule";
+
 // ── Types ────────────────────────────────────────────────────────────────────
 
 export type PumpingContext =
@@ -185,6 +187,9 @@ export function detectPatterns(
   nursingSessions: NursingRecord[] = [],
   /** User opted in to "skip gap alerts" (I nurse and pump) */
   skipGapAlerts = false,
+  /** Weekly Schedule opt-in — declared away/home days, advisory only */
+  scheduleEnabled = false,
+  scheduleAwayDays: number[] = [],
 ): DetectedPattern[] {
   const detected: DetectedPattern[] = [];
   const now = new Date();
@@ -341,7 +346,10 @@ export function detectPatterns(
 
   // ── Pattern 1: Long gap between sessions
   // skipGapAlerts = user opted in to "I nurse and pump — skip gap alerts"
-  if (!suppressedPatterns.has("long_gap_between_sessions") && !skipGapAlerts) {
+  // A declared home day is the same idea, schedule-driven instead of
+  // manually toggled — nursing-covered gaps there are expected, not a nag.
+  const todayDayTypeForGap = dayTypeForDate(scheduleEnabled, scheduleAwayDays, now);
+  if (!suppressedPatterns.has("long_gap_between_sessions") && !skipGapAlerts && todayDayTypeForGap !== "home") {
     const skipCtx: PumpingContext[] = ["mostly_nursing", "weaning", "equal_pumping_nursing"];
     if (!skipCtx.includes(pumpingContext) && last7.length >= 5) {
       // Merge pump sessions + nursing sessions into one sorted list of removal events
@@ -419,19 +427,38 @@ export function detectPatterns(
   ) {
     const recentCutoff = new Date(now);
     recentCutoff.setDate(recentCutoff.getDate() - 2);
-    const baselineStart = new Date(now);
-    baselineStart.setDate(baselineStart.getDate() - 9);
 
     const recentSessions = sorted.filter(s => new Date(s.started_at) >= recentCutoff);
-    const baselineSessions = sorted.filter(s => {
+
+    // If the last 2 days are all one declared schedule day-type (all away
+    // or all home), compare against a same-type-only, widened baseline
+    // instead of the raw prior week — otherwise a home day's naturally
+    // lighter output reads as a "sudden drop" against an away-day-heavy
+    // baseline. dayTypeForISO returns null when the schedule is off, so
+    // recentTypes collapses to {null} and uniformType is null — exactly
+    // today's behavior, unchanged.
+    const recentTypes = new Set(recentSessions.map(s => dayTypeForISO(scheduleEnabled, scheduleAwayDays, s.started_at)));
+    const uniformType: DayType = recentTypes.size === 1 ? [...recentTypes][0] : null;
+
+    const baselineWindowDays = uniformType ? 14 : 7;
+    const baselineStart = new Date(now);
+    baselineStart.setDate(baselineStart.getDate() - (2 + baselineWindowDays));
+    let baselineSessions = sorted.filter(s => {
       const t = new Date(s.started_at);
       return t >= baselineStart && t < recentCutoff;
     });
+    if (uniformType) {
+      baselineSessions = baselineSessions.filter(
+        s => dayTypeForISO(scheduleEnabled, scheduleAwayDays, s.started_at) === uniformType
+      );
+    }
 
     // Require enough data in both windows so a couple of sparse days
     // doesn't read as a "drop" — this is about a real sudden change, not
-    // noise from a light logging day.
-    if (recentSessions.length >= 2 && baselineSessions.length >= 5) {
+    // noise from a light logging day. Same-type comparisons need less
+    // baseline data since they're already apples-to-apples.
+    const minBaseline = uniformType ? 3 : 5;
+    if (recentSessions.length >= 2 && baselineSessions.length >= minBaseline) {
       const recentAvg   = average(recentSessions.map(s => s.total_oz));
       const baselineAvg = average(baselineSessions.map(s => s.total_oz));
       const dropPct = baselineAvg > 0 ? ((baselineAvg - recentAvg) / baselineAvg) * 100 : 0;
@@ -549,7 +576,15 @@ export function detectPatterns(
     const skipCtx: PumpingContext[] = [
       "equal_pumping_nursing", "mostly_nursing", "weaning", "triple_feeding",
     ];
-    if (!skipCtx.includes(pumpingContext)) {
+    // This pattern's copy assumes literal Saturday/Sunday. If the mom has
+    // a declared schedule whose away days AREN'T the weekend, suppress
+    // rather than relabel — the AI-generated copy would otherwise say
+    // "your weekend" for e.g. a Tue/Wed/Thu schedule.
+    const scheduleConflictsWithWeekend =
+      scheduleEnabled &&
+      scheduleAwayDays.length > 0 &&
+      !scheduleAwayDays.every(d => d === 0 || d === 6);
+    if (!skipCtx.includes(pumpingContext) && !scheduleConflictsWithWeekend) {
       const weekday = sessions.filter(s => !isWeekend(s.started_at));
       const weekend = sessions.filter(s =>  isWeekend(s.started_at));
 
@@ -582,7 +617,12 @@ export function detectPatterns(
     const skipCtx: PumpingContext[] = [
       "equal_pumping_nursing", "work_pumping", "mostly_nursing", "weaning",
     ];
-    if (!skipCtx.includes(pumpingContext)) {
+    // A declared schedule explains session-count variance on its own terms
+    // (already suppressed for work_pumping context above for the same
+    // reason) — a mom who set one up shouldn't be told her routine is
+    // "inconsistent" for doing exactly what she planned.
+    const hasActiveSchedule = scheduleEnabled && scheduleAwayDays.length > 0;
+    if (!skipCtx.includes(pumpingContext) && !hasActiveSchedule) {
       const counts = dailySessionCounts(last7);
       const vals = Array.from(counts.values());
       const maxCount = Math.max(...vals);

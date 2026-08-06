@@ -12,7 +12,7 @@
  *   • Refresh — force-regenerates (premium only; rate-limited by cache).
  */
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { View, Text, Pressable, ActivityIndicator, Animated } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
@@ -23,6 +23,7 @@ import {
   PumpingContext,
   SessionRecord,
 } from "../lib/patternDetection";
+import { dayTypeForDate } from "../lib/schedule";
 import {
   getOrGenerateInsight,
   dismissInsight,
@@ -48,6 +49,9 @@ interface CoachCardProps {
   accountCreatedAt: string;
   /** User opted in to "I nurse and pump — skip gap alerts" */
   skipGapAlerts?: boolean;
+  /** Weekly Schedule opt-in — declared away/home days, advisory only */
+  scheduleEnabled?: boolean;
+  scheduleAwayDays?: number[];
 }
 
 // ── Static fallback (legacy logic) ───────────────────────────────────────────
@@ -60,12 +64,14 @@ interface StaticInsight {
   actionRoute?: string;
 }
 
-function getStaticInsight(props: CoachCardProps): StaticInsight {
+function getStaticInsight(props: CoachCardProps, todayDayType: ReturnType<typeof dayTypeForDate>): StaticInsight {
   const { todayOz, avgOz, sessionCount, lastSessionAgo, goalOz, babyAgeWeeks } = props;
   const hour = new Date().getHours();
   const pct  = avgOz > 0 ? todayOz / avgOz : 0;
 
-  if (lastSessionAgo !== null && lastSessionAgo > 180) {
+  // On a declared home day, a long gap is expected (nursing instead of
+  // pumping) — don't nag about supply.
+  if (lastSessionAgo !== null && lastSessionAgo > 180 && todayDayType !== "home") {
     return {
       emoji: "⏰",
       headline: "It's been a while",
@@ -167,7 +173,15 @@ function InsightSkeleton() {
 
 export function CoachCard(props: CoachCardProps) {
   const router = useRouter();
-  const { userId, sessions, pumpingContext, babyAgeWeeks, accountCreatedAt, skipGapAlerts } = props;
+  const {
+    userId, sessions, pumpingContext, babyAgeWeeks, accountCreatedAt, skipGapAlerts,
+    scheduleEnabled, scheduleAwayDays,
+  } = props;
+
+  const todayDayType = useMemo(
+    () => dayTypeForDate(scheduleEnabled, scheduleAwayDays, new Date()),
+    [scheduleEnabled, scheduleAwayDays]
+  );
 
   const [insight,    setInsight]    = useState<GeneratedInsight | null>(null);
   const [pattern,    setPattern]    = useState<DetectedPattern | null>(null);
@@ -207,6 +221,8 @@ export function CoachCard(props: CoachCardProps) {
         suppressed,
         [],
         skipGapAlerts ?? false,
+        scheduleEnabled ?? false,
+        scheduleAwayDays ?? [],
       );
 
       if (!detected.length) {
@@ -234,7 +250,7 @@ export function CoachCard(props: CoachCardProps) {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [userId, sessions, pumpingContext, babyAgeWeeks, accountCreatedAt, loadSuppressed]);
+  }, [userId, sessions, pumpingContext, babyAgeWeeks, accountCreatedAt, loadSuppressed, scheduleEnabled, scheduleAwayDays]);
 
   useEffect(() => { loadInsight(); }, [loadInsight]);
 
@@ -255,7 +271,7 @@ export function CoachCard(props: CoachCardProps) {
 
   // ── Render ──────────────────────────────────────────────
 
-  const staticInsight = getStaticInsight(props);
+  const staticInsight = getStaticInsight(props, todayDayType);
 
   return (
     <LinearGradient

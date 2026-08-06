@@ -1049,6 +1049,15 @@ export default function ProfileScreen() {
 
               <Divider />
               <SettingRow
+                label="Weekly schedule"
+                value={profile?.schedule_enabled
+                  ? `${(profile.schedule_away_days ?? []).length} away day${(profile.schedule_away_days ?? []).length === 1 ? "" : "s"}/week`
+                  : "Not set"}
+                onPress={() => router.push("/weekly-schedule" as any)}
+              />
+
+              <Divider />
+              <SettingRow
                 label="My pumps"
                 value={userPumps.length > 0 ? userPumps.map((p) => p.name).join(", ") : "None added"}
                 onPress={() => setShowPumpsModal(true)}
