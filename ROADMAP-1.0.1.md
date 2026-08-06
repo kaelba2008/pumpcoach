@@ -206,6 +206,28 @@ consistently deliver on it.
       breakdown, since those are the record itself, not analysis of it.
       Pain callout + IBCLC consult recommendation are deliberately NEVER
       gated by Simple Mode (or Premium) — safety signal, not a stat.
+- [x] **Weekly schedule** — DONE (Aug 5, 2026): a beta tester works 3
+      days/week and pumps a lot more those days, nursing the rest of the
+      week, and asked for a way to declare that so the app stops treating
+      every day the same. New opt-in `profiles.schedule_enabled` /
+      `schedule_away_days` (Profile → "Weekly schedule", simple day-toggle
+      picker, save-on-change, no rigid form). Advisory only — actual logged
+      data always wins, this just sets expectations. Wired into the
+      insight/pattern-detection system (`lib/schedule.ts` day-type helper)
+      so a real alternating schedule stops causing false positives:
+      `sudden_output_drop` compares same-day-type baselines instead of a
+      home day against an away-day-inflated one; `weekend_output_dip`
+      suppresses itself when away days aren't the actual weekend rather
+      than showing wrong-day copy; `long_gap_between_sessions` and the
+      Coach card's 3-hour static gap nag both skip home days;
+      `high_schedule_variability` no longer flags a declared schedule as
+      "inconsistent"; the Snapshot tab's consistency score and supply
+      status both benchmark against same-day-type history instead of a
+      blended week average, which directly fixes a mom being capped at
+      "Fair" consistency purely for having a real routine with two
+      different rhythms — without her needing to log nursing sessions to
+      make it work. Zero behavior change for anyone who doesn't set up a
+      schedule.
 
 ## Cleanups deferred from 1.0
 
@@ -233,3 +255,7 @@ consistently deliver on it.
       acquisition" + "Never had any subscription" (blocks switching between
       monthly/annual to re-trigger the trial), 174 countries/regions.
       Confirmed both showing "Active • free-trial-7d".
+- [x] **TBMCLIENT promo code** — DONE (Aug 5, 2026): 60-day code for TBM
+      clients, `promo_codes` row (`reward_days=60`, unlimited uses, no
+      expiry). Redeemed in-app via the existing promo/referral flow, so one
+      code works on both iOS and Android.
