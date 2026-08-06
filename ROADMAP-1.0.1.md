@@ -2,6 +2,62 @@
 
 Collected from tester + user feedback during the 1.0 launch push (July 30, 2026).
 
+## Security audit (Aug 5, 2026) — Katie asked how secure the app actually is
+
+- [x] **CRITICAL: viewer invite bypass.** FIXED same day. `viewer_accounts`'
+      INSERT policy only checked that a user was inserting themselves as
+      viewer — never that a real invitation existed. Combined with
+      `invitations` being world-readable with no login required, anyone
+      could harvest an owner_id and grant themselves standing read access
+      to that mom's pumping/nursing/pain data, no invite, no consent. Fixed
+      via `supabase/migrations/20260805020000_viewer_invite_security_fix.sql`:
+      INSERT now requires a matching, non-revoked, non-expired invitation
+      for the exact authenticated email; removed the world-readable SELECT
+      policy in favor of a `get_invitation_preview()` RPC that only returns
+      a row for the exact token given; added a missing viewer DELETE policy
+      (self-service "remove my access" was silently failing under RLS) and
+      a missing viewer-side invitations UPDATE policy (accepting an invite
+      never actually persisted `status=accepted`, silently blocked with no
+      RLS policy allowing it). Revoking a viewer now also revokes their
+      invitation so they can't just re-accept the old link. The database
+      fix took effect immediately on apply, independent of the app update.
+- [ ] **HIGH: `generate-insight` edge function has no auth check.** Every
+      other edge function (`delete-account`, `redeem-referral`, `ai-coach`)
+      verifies the caller's JWT before doing anything privileged;
+      `generate-insight` only checks that *some* Bearer token is present,
+      never validates it. Lets anyone burn Anthropic API spend
+      unauthenticated and doesn't sanitize `context_data` before it's
+      interpolated into the Claude prompt (a prompt-injection surface).
+      Does not directly expose other users' records. Needs the same
+      `anonClient.auth.getUser(token)` check the other three already use.
+- [ ] **HIGH: `delete-account` can leave a "zombie" account.** App-data
+      tables are deleted before `admin.auth.admin.deleteUser()` is called;
+      `promo_uses.used_by` references `auth.users(id)` with no `ON DELETE`
+      clause, so any user who's ever redeemed a promo code gets a
+      foreign-key error on that final call — by which point their profile
+      and health data are already gone, but the login itself survives and
+      the user is told deletion failed. `referral_uses`/`coach_reports`
+      need the same check (their table definitions aren't in this repo).
+- [ ] **MEDIUM: `.env` is committed to git.** No real secret is in it today
+      (only client-safe `EXPO_PUBLIC_*` values), but `.gitignore` only
+      excludes `.env*.local`. Untrack it and start using `.env.example`
+      before anyone adds a real secret expecting it to stay private.
+- [ ] **MEDIUM: no rate limiting on any edge function**, most exposed once
+      the auth gap above is fixed.
+- [ ] **LOW: in-progress session/preference caches use AsyncStorage** (not
+      SecureStore) — auth tokens are already correctly on SecureStore, this
+      is lower-sensitivity UI-state data, but touches baby names / pump
+      settings unencrypted on-device. Optional defense-in-depth.
+- Confirmed clean: no hardcoded secrets anywhere in the repo; all
+  server-only keys correctly pulled from edge-function env vars; auth
+  session storage correctly uses SecureStore/Keychain, not AsyncStorage;
+  AI prompts already minimize PII (postpartum weeks instead of exact DOB,
+  no names/emails sent to Claude); password/auth flow goes entirely through
+  Supabase's own methods, no custom handling; every other RLS policy across
+  the app was re-audited against the same "ceiling not scope" pattern that
+  caused the Aug 4 cross-account data leak, with no other live instance
+  found.
+
 ## Android entitlements outage (Aug 3-4, 2026) — resolved
 
 Four stacked bugs, found and fixed in sequence overnight after Android
