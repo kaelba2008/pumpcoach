@@ -274,6 +274,7 @@ export interface ViewerAccount {
   id: string;
   owner_id: string;
   viewer_id: string;
+  viewer_email: string | null;
   label: string | null;
   created_at: string;
 }

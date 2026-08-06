@@ -45,22 +45,26 @@ export default function ViewerInviteScreen() {
 
   async function verifyToken(tokenValue: string) {
     setStep("loading");
+    // Goes through a SECURITY DEFINER RPC rather than a direct table
+    // select — invitations has no public SELECT policy (it would let
+    // anyone dump every pending invite app-wide), so a pre-auth preview
+    // can only ever look up the exact token given, never list rows.
     const { data, error } = await supabase
-      .from("invitations")
-      .select("id, owner_id, status, expires_at, profiles!owner_id(display_name)")
-      .eq("token", tokenValue.trim())
-      .maybeSingle();
+      .rpc("get_invitation_preview", { p_token: tokenValue.trim() })
+      .maybeSingle() as {
+        data: { id: string; owner_id: string; status: string; expires_at: string; owner_display_name: string | null } | null;
+        error: { message: string } | null;
+      };
 
     if (error || !data) { setStep("invalid"); return; }
     if (data.status === "revoked") { setStep("invalid"); return; }
 
     setInviteId(data.id);
     setOwnerId(data.owner_id);
-    const profile = data.profiles as any;
     // Baby name isn't shown in this pre-acceptance preview — the babies
     // table's viewer-read RLS policy only grants access once a
     // viewer_accounts relationship exists, which isn't true yet here.
-    setOwnerName(profile?.display_name || "someone");
+    setOwnerName(data.owner_display_name || "someone");
 
     if (data.status === "accepted") {
       // Already accepted — expiry doesn't matter, the viewer relationship exists.
@@ -88,10 +92,15 @@ export default function ViewerInviteScreen() {
     if (!session?.user || !id) return;
     setStep("accepting");
 
-    // Create viewer relationship (or update if it already exists)
+    // Create viewer relationship (or update if it already exists). The
+    // database requires this email to match a real, non-revoked
+    // invitation for this owner (see 20260805020000_viewer_invite_security_fix.sql) —
+    // an account signed in under a different email than the invite was
+    // sent to will be rejected here, not silently granted access.
     const { error: vaError } = await supabase.from("viewer_accounts").upsert({
-      owner_id:  owner,
-      viewer_id: session.user.id,
+      owner_id:     owner,
+      viewer_id:    session.user.id,
+      viewer_email: session.user.email,
     });
 
     if (vaError) {
@@ -102,7 +111,13 @@ export default function ViewerInviteScreen() {
         vaError.code === "23505"; // PostgreSQL unique constraint violation code
 
       if (!isDuplicateOrConstraint) {
-        Alert.alert("Error", vaError.message);
+        const isRlsRejection = vaError.code === "42501" || vaError.message?.includes("row-level security");
+        Alert.alert(
+          "Could not accept invite",
+          isRlsRejection
+            ? "This invite was sent to a different email address, or it's no longer valid. Sign in with the email the invite was sent to, or ask for a new invite."
+            : vaError.message,
+        );
         setStep("sign-in");
         return;
       }

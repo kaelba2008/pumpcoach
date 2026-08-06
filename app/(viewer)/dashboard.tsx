@@ -119,8 +119,12 @@ export default function ViewerDashboard() {
           style: "destructive",
           onPress: async () => {
             if (!user || !viewingOwnerId) return;
-            await supabase.from("viewer_accounts").delete()
+            const { error } = await supabase.from("viewer_accounts").delete()
               .eq("owner_id", viewingOwnerId).eq("viewer_id", user.id);
+            if (error) {
+              Alert.alert("Could not remove access", error.message);
+              return;
+            }
             await signOut();
           },
         },

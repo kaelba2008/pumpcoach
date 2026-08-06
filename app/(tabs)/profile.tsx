@@ -399,7 +399,22 @@ export default function ProfileScreen() {
           text: "Remove",
           style: "destructive",
           onPress: async () => {
-            await supabase.from("viewer_accounts").delete().eq("id", v.id);
+            const { error } = await supabase.from("viewer_accounts").delete().eq("id", v.id);
+            if (error) {
+              Alert.alert("Could not remove access", error.message);
+              return;
+            }
+            // Also revoke the underlying invitation, so this person cannot
+            // simply re-accept their old invite link and grant themselves
+            // access back — an "accepted" invitation never expires on its
+            // own.
+            if (v.viewer_email) {
+              await supabase
+                .from("invitations")
+                .update({ status: "revoked" })
+                .eq("owner_id", user!.id)
+                .ilike("email", v.viewer_email);
+            }
             setViewers((prev) => prev.filter((x) => x.id !== v.id));
           },
         },
