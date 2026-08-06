@@ -15,6 +15,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const ANTHROPIC_API_KEY  = Deno.env.get("ANTHROPIC_API_KEY")  ?? "";
 const SUPABASE_URL        = Deno.env.get("SUPABASE_URL")        ?? "";
+const SUPABASE_ANON_KEY   = Deno.env.get("SUPABASE_ANON_KEY")   ?? "";
 const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const ALLOWED_ORIGIN      = Deno.env.get("ALLOWED_ORIGIN")      ?? "*";
 
@@ -39,9 +40,20 @@ serve(async (req) => {
 
   try {
     // ── Auth check ──────────────────────────────────────────
+    // Verify the caller's JWT is real, not just present — this endpoint
+    // uses the service-role client below (bypasses RLS) and calls the
+    // Anthropic API on this project's dime, so an unauthenticated caller
+    // must never reach that far.
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return json({ error: "Unauthorized" }, 401);
+    }
+    const anonClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const { data: { user }, error: authError } = await anonClient.auth.getUser(
+      authHeader.replace("Bearer ", "")
+    );
+    if (authError || !user) {
+      return json({ error: "Invalid token" }, 401);
     }
 
     if (!ANTHROPIC_API_KEY) {
