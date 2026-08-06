@@ -21,33 +21,37 @@ Collected from tester + user feedback during the 1.0 launch push (July 30, 2026)
       RLS policy allowing it). Revoking a viewer now also revokes their
       invitation so they can't just re-accept the old link. The database
       fix took effect immediately on apply, independent of the app update.
-- [ ] **HIGH: `generate-insight` edge function has no auth check.** Every
-      other edge function (`delete-account`, `redeem-referral`, `ai-coach`)
-      verifies the caller's JWT before doing anything privileged;
-      `generate-insight` only checks that *some* Bearer token is present,
-      never validates it. Lets anyone burn Anthropic API spend
-      unauthenticated and doesn't sanitize `context_data` before it's
-      interpolated into the Claude prompt (a prompt-injection surface).
-      Does not directly expose other users' records. Needs the same
-      `anonClient.auth.getUser(token)` check the other three already use.
-- [ ] **HIGH: `delete-account` can leave a "zombie" account.** App-data
-      tables are deleted before `admin.auth.admin.deleteUser()` is called;
-      `promo_uses.used_by` references `auth.users(id)` with no `ON DELETE`
-      clause, so any user who's ever redeemed a promo code gets a
-      foreign-key error on that final call — by which point their profile
-      and health data are already gone, but the login itself survives and
-      the user is told deletion failed. `referral_uses`/`coach_reports`
-      need the same check (their table definitions aren't in this repo).
-- [ ] **MEDIUM: `.env` is committed to git.** No real secret is in it today
-      (only client-safe `EXPO_PUBLIC_*` values), but `.gitignore` only
-      excludes `.env*.local`. Untrack it and start using `.env.example`
-      before anyone adds a real secret expecting it to stay private.
-- [ ] **MEDIUM: no rate limiting on any edge function**, most exposed once
-      the auth gap above is fixed.
-- [ ] **LOW: in-progress session/preference caches use AsyncStorage** (not
-      SecureStore) — auth tokens are already correctly on SecureStore, this
-      is lower-sensitivity UI-state data, but touches baby names / pump
-      settings unencrypted on-device. Optional defense-in-depth.
+- [x] **HIGH: `generate-insight` edge function has no auth check.** FIXED
+      (Aug 5, 2026): added the same `anonClient.auth.getUser(token)` check
+      already used correctly in `delete-account`/`redeem-referral`/
+      `ai-coach`. Verified a fake bearer token now gets a 401.
+- [x] **HIGH: `delete-account` can leave a "zombie" account.** FIXED (Aug 5,
+      2026): confirmed via direct schema query that `promo_uses.used_by`
+      was the ONLY table referencing `auth.users` without `ON DELETE
+      CASCADE` (every other table, including `profiles` itself, already
+      cascaded correctly). Fixed the FK to CASCADE and added explicit
+      cleanup for `debug_logs`/`coach_reports`, which have no foreign key
+      at all and would otherwise be silently orphaned rather than erased.
+- [x] **MEDIUM: `.env` is committed to git.** FIXED (Aug 5, 2026): untracked
+      going forward (nothing sensitive was ever in it, so no history
+      rewrite needed), added `.env.example`, `.gitignore` now excludes
+      `.env` itself, not just `.env*.local`.
+- [x] **MEDIUM: no rate limiting on any edge function.** FIXED (Aug 5,
+      2026): added a generic `check_rate_limit()` Postgres function
+      (fixed-window, service-role only) and wired it into `generate-insight`
+      + `ai-coach` (30 requests/hour — the two functions that call the
+      paid Anthropic API) and `redeem-referral` (10 attempts/hour — promo
+      codes are short human-readable strings that could otherwise be
+      brute-forced).
+- [ ] **LOW: in-progress session/preference caches use AsyncStorage, not
+      SecureStore.** Consciously NOT doing a blanket migration — auth
+      tokens are already correctly on SecureStore (the thing that actually
+      matters), and SecureStore/Keychain is designed for small secrets, not
+      general app state like an in-progress session object or a last-used
+      pump name; forcing everything through it would add real complexity
+      and fragility for a risk that only matters on a jailbroken/rooted or
+      physically-unlocked device. Leaving as-is; revisit only if a specific
+      field genuinely needs it.
 - Confirmed clean: no hardcoded secrets anywhere in the repo; all
   server-only keys correctly pulled from edge-function env vars; auth
   session storage correctly uses SecureStore/Keychain, not AsyncStorage;
