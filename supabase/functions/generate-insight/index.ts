@@ -61,6 +61,22 @@ serve(async (req) => {
       return json({ error: "AI service not configured" }, 500);
     }
 
+    // ── Rate limit ────────────────────────────────────────────
+    // 30 generations/hour per user is far above any real usage pattern
+    // (insights are cached client-side and only regenerated on new
+    // patterns or an explicit refresh) but stops abuse from burning
+    // Anthropic spend.
+    const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+    const { data: allowed } = await admin.rpc("check_rate_limit", {
+      p_user_id: user.id,
+      p_action: "generate-insight",
+      p_limit: 30,
+      p_window_seconds: 3600,
+    });
+    if (allowed === false) {
+      return json({ error: "Too many requests. Please try again in a bit." }, 429);
+    }
+
     // ── Parse request ────────────────────────────────────────
     const { pattern_name, context_variant, context_data } = await req.json() as {
       pattern_name: string;
@@ -73,7 +89,6 @@ serve(async (req) => {
     }
 
     // ── Fetch template (service role bypasses RLS) ───────────
-    const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
     const { data: template, error: dbErr } = await admin
       .from("insight_templates")
       .select("*")

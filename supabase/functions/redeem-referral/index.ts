@@ -87,6 +87,21 @@ serve(async (req) => {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
+    // ── Rate limit ──────────────────────────────────────────
+    // Promo codes are short, human-readable strings (e.g. "TBMCLIENT") --
+    // without a limit, a single account could brute-force guess codes.
+    // 10 attempts/hour is generous for typos, tight enough to make
+    // guessing impractical.
+    const { data: allowed } = await admin.rpc("check_rate_limit", {
+      p_user_id: newUserId,
+      p_action: "redeem-referral",
+      p_limit: 10,
+      p_window_seconds: 3600,
+    });
+    if (allowed === false) {
+      return json({ error: "Too many attempts. Please try again in a bit." }, 429);
+    }
+
     const normalizedCode = code.trim().toUpperCase();
 
     // ── Path 1: admin promo codes (no referrer) ───────────────────────────────

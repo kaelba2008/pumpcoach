@@ -1,7 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY") ?? "";
-const ALLOWED_ORIGIN    = Deno.env.get("ALLOWED_ORIGIN") ?? "*";
+const ANTHROPIC_API_KEY   = Deno.env.get("ANTHROPIC_API_KEY") ?? "";
+const ALLOWED_ORIGIN      = Deno.env.get("ALLOWED_ORIGIN") ?? "*";
+const SUPABASE_URL        = Deno.env.get("SUPABASE_URL") ?? "";
+const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin":  ALLOWED_ORIGIN,
@@ -32,6 +35,24 @@ serve(async (req) => {
     if (!authRes.ok) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const authedUser = await authRes.json();
+
+    // ── Rate limit ──────────────────────────────────────────
+    // 30 messages/hour per user comfortably covers a real coaching
+    // conversation while stopping automated/abusive spend against the
+    // Anthropic API.
+    const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+    const { data: allowed } = await admin.rpc("check_rate_limit", {
+      p_user_id: authedUser.id,
+      p_action: "ai-coach",
+      p_limit: 30,
+      p_window_seconds: 3600,
+    });
+    if (allowed === false) {
+      return new Response(JSON.stringify({ error: "Too many messages. Please try again in a bit." }), {
+        status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
