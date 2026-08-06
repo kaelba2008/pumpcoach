@@ -209,11 +209,27 @@ consistently deliver on it.
 
 ## Cleanups deferred from 1.0
 
-- [ ] Delete the stray "Premium Annual" subscription group in App Store
-      Connect (unused duplicate; the live annual is
-      com.thebreastfeedingmama.pumpcoach.annual in the PumpCoach Premium
-      group).
+- [x] **Delete the stray "Premium Annual" subscription group in App Store
+      Connect.** DONE (Aug 4, 2026): removed both the never-submitted
+      product (com.thebreastfeedingmama.pumpcoach.premium.annual, "Prepare
+      for Submission") and its now-empty group (ID 22062017). Confirmed via
+      the Subscriptions list: only "PumpCoach Premium" (2 subscriptions)
+      remains.
 - [ ] Consider a real invite web page at pumpcoach.app/invite that
       redirects to the app (current flow uses paste-in invite codes).
-- [ ] Verify 7-day free trial intro offers exist on the App Store
-      subscriptions (paywall promises them).
+- [x] **Set up the 7-day free trial intro offers — they did not exist on
+      either store.** FIXED (Aug 5, 2026): confirmed neither store had a
+      trial configured despite `app/paywall.tsx` unconditionally promising
+      "Start 7-Day Free Trial" for both plans — every real subscriber was
+      being charged immediately with no trial, on iOS and Android alike.
+      **App Store Connect**: added a "Free" introductory offer, 1 week, on
+      both `com.thebreastfeedingmama.pumpcoach.premium.monthly` and
+      `com.thebreastfeedingmama.pumpcoach.annual`, all 175 countries/regions,
+      start date Aug 5 2026 with no end date. Confirmed live: "Aug 5, 2026 to
+      No End Date, 175 Countries or Regions, Free for the first week."
+      **Google Play Console**: added a `free-trial-7d` offer (Free trial
+      phase, 7 days) to the `monthly` and `annual` base plans under
+      `premium_monthly`/`premium_annual`, eligibility "New customer
+      acquisition" + "Never had any subscription" (blocks switching between
+      monthly/annual to re-trigger the trial), 174 countries/regions.
+      Confirmed both showing "Active • free-trial-7d".
