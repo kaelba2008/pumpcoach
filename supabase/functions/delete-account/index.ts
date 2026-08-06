@@ -43,20 +43,27 @@ serve(async (req) => {
     });
 
     // Delete user data in FK-safe order
-    // ai_conversations and red_flag_events reference profiles (ON DELETE CASCADE or SET NULL)
-    // but we delete explicitly to be certain
+    // Most of these already CASCADE from profiles/auth.users, but we
+    // delete explicitly to be certain -- and debug_logs/coach_reports in
+    // particular have NO foreign key at all, so without this they'd be
+    // silently orphaned (dangling free-text data) rather than erased.
     const tables = [
       "ai_conversations",
       "red_flag_events",
       "stash_entries",
       "pump_sessions",
       "reminders",
+      "debug_logs",
+      "coach_reports",
     ];
 
     for (const table of tables) {
       const { error } = await admin.from(table).delete().eq("user_id", userId);
       if (error) console.error(`Error deleting ${table}:`, error.message);
     }
+
+    // promo_uses is keyed by used_by, not user_id
+    await admin.from("promo_uses").delete().eq("used_by", userId);
 
     // Delete audit_log rows for this user
     await admin.from("audit_log").delete().eq("user_id", userId);
