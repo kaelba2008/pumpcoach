@@ -211,6 +211,30 @@ consistently deliver on it.
       cycle setting at all. Consider per-pump setting definitions (the
       user_pumps table could carry a settings schema per model), free-text
       entry, or brand presets.
+- [ ] **Return to Work Planner** — currently a disabled "Coming soon"
+      `SettingRow` in `app/(tabs)/profile.tsx` (Profile → Tools section),
+      `profiles.return_to_work` already exists as a field but nothing reads
+      or writes it yet. Re-added to the roadmap (Aug 6, 2026) — needs
+      scoping: likely a guided plan working backward from a return date
+      (building a stash, adjusting session count/schedule ahead of time,
+      pump-at-work logistics), probably ties into the Weekly Schedule
+      feature once she's back at work.
+- [ ] **Robust IBCLC viewer dashboard — real client-list login, not the
+      parent-facing view.** Re-added to the roadmap (Aug 6, 2026). Today an
+      IBCLC accepts an invite and lands on `app/(viewer)/dashboard.tsx`,
+      which shows ONE client's data at a time (the parent's own home-screen
+      layout, reused) with a `viewingOwnerId` picker if she views multiple
+      clients — not a real practice-management view. Katie wants an IBCLC
+      to log in and see her actual client list/roster first (all clients
+      she has viewer access to via `viewer_accounts`, with at-a-glance
+      status per client — e.g. who needs attention, who hasn't logged
+      recently), then drill into one. Needs real scoping: is this a new
+      top-level dashboard replacing the current single-client view, or a
+      client-list screen in front of it? Does it need its own IBCLC-specific
+      account type/role, or stay built on the existing `viewer_accounts`
+      relationship? Worth a dedicated planning session, not a quick patch —
+      flagged as one of the two things Katie wants to work on next,
+      alongside Return to Work Planner.
 - [ ] **MomCozy app integration** — client-requested. Researched (Aug 2026):
       no viable path today. Checked MomCozy, Willow, and Elvie's App Store
       listings directly — none integrate with Apple HealthKit or expose any
