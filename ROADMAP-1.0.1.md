@@ -279,6 +279,16 @@ consistently deliver on it.
       PDF export, and the email-to-LC text.
 - [ ] **Weaning mode** — guided session-dropping plan; big feature, needs
       IBCLC-driven spec from Katie.
+- [ ] **Relactation mode** — Added (Aug 7, 2026). Guided plan for rebuilding
+      supply after it's dropped or stopped (post-illness, after weaning,
+      after a supply crash) — the inverse of Weaning mode above, not the
+      same as ordinary supply-building for a newly postpartum mom. Needs
+      IBCLC-driven spec from Katie: likely a session-count ramp-up schedule,
+      different framing/reassurance copy than the existing postpartum-stage
+      guidance (`getPostpartumStage()` in `app/(tabs)/snapshot.tsx` assumes
+      a forward timeline from birth, not a restart), and probably its own
+      entry point distinct from the regular onboarding pumping-context
+      question. Big feature — needs real scoping before implementation.
 - [x] **Simple mode toggle** — DONE (Aug 4, 2026): new `profiles.simple_mode`,
       toggled from Profile right next to the hydration setting. Hides the
       home screen's Session Analysis status card, Coach card/premium-teaser
