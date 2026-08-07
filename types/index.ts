@@ -232,7 +232,10 @@ export interface NursingSession {
   created_at: string;
 }
 
+export type FlangeSide = "both" | "right" | "left";
+
 export interface FlangeFitInput {
+  side: FlangeSide | null;
   current_size_mm: number | null;
   pump_brand: string;
   flange_style: "regular" | "insert" | null;

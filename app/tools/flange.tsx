@@ -13,71 +13,27 @@ import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
 import { FLANGE_SIZES_MM, COLORS } from "../../lib/constants";
 import {
-  FlangeFitInput, FlangeFitResult,
+  FlangeFitInput, FlangeFitResult, FlangeSide,
   ComfortScore, AlignmentScore, ReleaseScore, EmptyingScore,
 } from "../../types";
 
-type Step = "care_c" | "care_a" | "care_r" | "care_e" | "measurements" | "analyzing" | "result";
+type Step = "side" | "care_c" | "care_a" | "care_r" | "care_e" | "measurements" | "analyzing" | "result";
 
 const PUMP_BRANDS = ["Spectra", "Medela", "Elvie", "Willow", "Baby Buddha", "Haakaa", "Momcozy", "Lansinoh", "Other"];
 
-// ─── AI system prompt ─────────────────────────────────────────────────────────
-
-const CARE_SHARED_RULES = `
-You are assessing flange fit using the Pump Coach CARE Check framework.
-CARE = Comfort · Alignment · Release · Emptying
-
-C — COMFORT: Pumping should feel like nothing or a very gentle tug.
-    Signs of too small: pinching, burning, stinging, nipple tip soreness, blanching (nipple turns white after removal), ridging or creasing of nipple after removal.
-    Signs of too large: deep breast aching or pulling sensation felt inside the breast.
-
-A — ALIGNMENT: The nipple should be centered in the tunnel with the sides lightly touching the walls.
-    There should be a slight, rhythmic back-and-forth motion — only the nipple, not the areola.
-    Too large: lots of space around the nipple, areola being pulled in, nipple moves side-to-side excessively.
-    Too small: nipple fills the entire tunnel wall-to-wall with no clearance, barely any movement.
-
-R — RELEASE: Milk should spray in streams, not drip.
-    Good fit supports a quick let-down (within ~2 minutes) and consistent flow throughout the session.
-    Poor fit or suction issues may cause slow or absent let-down, dripping instead of spraying, or flow that stops and starts.
-
-E — EMPTYING: A good fit maximizes milk removal and directly supports supply.
-    Breasts should feel soft and well-drained after a full session.
-    If breasts feel full or lumpy after pumping, the flange may be too small and not emptying well.
-    Declining output over time warrants a fit re-assessment.
-
-Sizing guidance:
-- Measure nipple diameter at the TIP (the widest point of the nipple itself — not the base, not the areola) in mm
-- Regular/rigid flanges: starting size = nipple tip diameter (no addition needed)
-- Soft inserts (Pumpin' Pals, Maymom, Legendairy Milk): starting size = nipple tip diameter + 1–2mm
-- Sizes range from 9mm to 40mm depending on brand
-- Always apply the correct rule based on whether the user uses a regular flange or soft inserts
-
-The ideal fit: only the nipple enters the tunnel, sides lightly touch the walls, slight back-and-forth motion, milk sprays in streams, 15–20 min sessions, comfortable throughout.
-
-Always respond warmly and non-alarmingly. This is informational guidance, not clinical care.
-Recommend working with a certified IBCLC for in-person confirmation.`;
-
-const CARE_TEXT_SYSTEM = `${CARE_SHARED_RULES}
-
-The user has completed the Pump Coach CARE Check questionnaire. Using only their self-reported answers — comfort symptoms, nipple alignment observation, milk release pattern, emptying satisfaction, and pump/size measurements — provide a thorough flange fit assessment. Be specific about which answers drove your conclusions. Do not reference visual observations or anything you cannot know from their answers alone.
-
-Return ONLY valid JSON in this exact shape:
-{
-  "assessment": "likely_too_small" | "likely_too_large" | "likely_good_fit" | "unclear",
-  "recommended_size_mm": number | null,
-  "confidence": "high" | "medium" | "low",
-  "care_c": "1 sentence on Comfort based on their answers",
-  "care_a": "1 sentence on Alignment based on their answers",
-  "care_r": "1 sentence on Release based on their answers",
-  "care_e": "1 sentence on Emptying based on their answers",
-  "explanation": "2-3 warm sentences summarizing overall finding",
-  "tips": ["specific tip 1", "specific tip 2", "specific tip 3"],
-  "see_ibclc": true | false
-}`;
+const SIDE_LABEL: Record<FlangeSide, string> = {
+  both:  "Both sides",
+  right: "Right side",
+  left:  "Left side",
+};
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+// The assessment system prompt (CARE framework, sizing rules, response shape)
+// now lives server-side in the ai-coach edge function's "flange_fit_check"
+// mode — a client-supplied `system` string is never trusted or sent.
 function buildContextText(input: FlangeFitInput): string {
   return [
+    input.side                    && `Side being assessed: ${SIDE_LABEL[input.side]}${input.side !== "both" ? " only — tailor this assessment to this side specifically, it may differ from the other side" : ""}`,
     input.pump_brand              && `Pump brand: ${input.pump_brand}`,
     input.flange_style            && `Flange type: ${input.flange_style === "insert" ? "Soft insert" : "Regular/rigid flange"}`,
     input.current_size_mm         && `Current flange size: ${input.current_size_mm}mm`,
@@ -90,21 +46,16 @@ function buildContextText(input: FlangeFitInput): string {
   ].filter(Boolean).join("\n");
 }
 
-function parseResult(raw: string): FlangeFitResult {
-  const match = raw.match(/\{[\s\S]*\}/);
-  if (!match) throw new Error("No JSON found in response");
-  return JSON.parse(match[0]) as FlangeFitResult;
-}
-
 async function analyzeWithText(input: FlangeFitInput): Promise<FlangeFitResult> {
   const { data, error } = await supabase.functions.invoke("ai-coach", {
     body: {
-      system:   CARE_TEXT_SYSTEM,
+      mode:     "flange_fit_check",
       messages: [{ role: "user", content: `Please assess my flange fit using the CARE Check.\n\n${buildContextText(input)}` }],
     },
   });
   if (error) throw error;
-  return parseResult(data.content);
+  if (!data?.result) throw new Error(data?.error ?? "No assessment returned");
+  return data.result as FlangeFitResult;
 }
 
 // ─── Choice row components ────────────────────────────────────────────────────
@@ -185,8 +136,9 @@ function StepHeader({ letter, title, description }: { letter: string; title: str
 }
 
 // ─── Result view ──────────────────────────────────────────────────────────────
-function ResultView({ result, onRetake, onClose, hasLactationConsultant }: {
+function ResultView({ result, side, onRetake, onClose, hasLactationConsultant }: {
   result: FlangeFitResult;
+  side: FlangeSide | null;
   onRetake: () => void;
   onClose: () => void;
   hasLactationConsultant: boolean | null;
@@ -202,6 +154,13 @@ function ResultView({ result, onRetake, onClose, hasLactationConsultant }: {
     <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 52 }}>
       {/* Overall assessment */}
       <View style={{ alignItems: "center", paddingVertical: 20, gap: 10, marginBottom: 8 }}>
+        {side && side !== "both" && (
+          <View style={{ backgroundColor: COLORS.muted, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 6 }}>
+            <Text style={{ fontSize: 12, fontFamily: "Nunito_700Bold", fontWeight: "700", color: COLORS.ink2 }}>
+              {SIDE_LABEL[side]}
+            </Text>
+          </View>
+        )}
         <Text style={{ fontSize: 56 }}>{cfg.emoji}</Text>
         <Text style={{ fontSize: 24, fontFamily: "Nunito_800ExtraBold", fontWeight: "800", color: COLORS.ink, textAlign: "center" }}>{cfg.label}</Text>
         {result.recommended_size_mm && (
@@ -334,7 +293,8 @@ export default function FlangeAnalyzerScreen() {
   const router      = useRouter();
   const { profile } = useAuthStore();
 
-  const [step,         setStep]        = useState<Step>("care_c");
+  const [step,         setStep]        = useState<Step>("side");
+  const [side,         setSide]        = useState<FlangeSide | null>(null);
   const [currentSize,  setCurrentSize] = useState<number | null>(profile?.flange_size_mm ?? null);
   const [nippleDiam,   setNippleDiam]  = useState("");
   const [pumpBrand,    setPumpBrand]   = useState(profile?.pump_brand ?? "");
@@ -356,6 +316,7 @@ export default function FlangeAnalyzerScreen() {
   };
 
   const buildInput = (): FlangeFitInput => ({
+    side:                  side,
     current_size_mm:      currentSize,
     pump_brand:           pumpBrand,
     flange_style:         flangeStyle,
@@ -383,7 +344,8 @@ export default function FlangeAnalyzerScreen() {
   };
 
   const reset = () => {
-    setStep("care_c");
+    setStep("side");
+    setSide(null);
     setComfortScores([]);
     setAlignmentScore(null);
     setReleaseScore(null);
@@ -392,7 +354,7 @@ export default function FlangeAnalyzerScreen() {
     setError(null);
   };
 
-  const STEP_ORDER: Step[] = ["care_c", "care_a", "care_r", "care_e", "measurements"];
+  const STEP_ORDER: Step[] = ["side", "care_c", "care_a", "care_r", "care_e", "measurements"];
   const stepIndex = STEP_ORDER.indexOf(step);
 
   return (
@@ -422,7 +384,7 @@ export default function FlangeAnalyzerScreen() {
         </View>
 
         {/* CARE progress pills */}
-        {!["analyzing", "result"].includes(step) && (
+        {!["side", "analyzing", "result"].includes(step) && (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ paddingHorizontal: 20, marginBottom: 8 }}>
             <View style={{ flexDirection: "row", gap: 8, paddingBottom: 4 }}>
               {[
@@ -465,10 +427,49 @@ export default function FlangeAnalyzerScreen() {
         {step === "result" && result && (
           <ResultView
             result={result}
+            side={side}
             onRetake={reset}
             onClose={() => router.back()}
             hasLactationConsultant={profile?.has_lactation_consultant ?? null}
           />
+        )}
+
+        {/* ── SIDE ── */}
+        {step === "side" && (
+          <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 48 }}>
+            <LinearGradient
+              colors={[COLORS.primaryMist, COLORS.mauveLight]}
+              start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+              style={{ borderRadius: 20, padding: 20, marginBottom: 20 }}
+            >
+              <Text style={{ fontSize: 24, fontWeight: "900", color: COLORS.ink, marginBottom: 6 }}>
+                Flange Fit Analyzer
+              </Text>
+              <Text style={{ fontSize: 14, color: COLORS.ink2, lineHeight: 21 }}>
+                Many people need a different flange size or fit on each side. If your fit feels
+                different left vs. right, run the CARE Check separately for each — you can start
+                over afterward to check the other side.
+              </Text>
+            </LinearGradient>
+
+            <StepHeader
+              letter="📏"
+              title="Which side is this for?"
+              description="This helps us give you an assessment tailored to that side, since breasts are often asymmetrical."
+            />
+            <View style={{ gap: 8, marginTop: 16 }}>
+              {([
+                { val: "both"  as const, label: "Both sides",  sub: "My fit and comfort feel the same on both sides" },
+                { val: "right" as const, label: "Right side",  sub: "I want to assess my right side specifically" },
+                { val: "left"  as const, label: "Left side",   sub: "I want to assess my left side specifically" },
+              ]).map(({ val, label, sub }) => (
+                <ChoiceRow key={val} label={label} sub={sub} selected={side === val} onPress={() => setSide(val)} />
+              ))}
+            </View>
+            <View style={{ marginTop: 20 }}>
+              <Button label="Next: Comfort →" onPress={() => setStep("care_c")} fullWidth size="lg" disabled={!side} />
+            </View>
+          </ScrollView>
         )}
 
         {/* ── C — Comfort ── */}

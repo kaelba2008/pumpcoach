@@ -57,8 +57,12 @@ serve(async (req) => {
     }
 
     // Accept messages + optional benign user context (pump brand, weeks postpartum, etc.)
-    // The system prompt with safety rules lives here server-side; the client cannot override it.
-    const { messages, context } = await req.json();
+    // The system prompt with safety rules lives here server-side; the client cannot override
+    // it with arbitrary text. `mode` selects between a small, fixed set of server-defined
+    // prompts (not a free-text override) — this is how a trusted first-party caller like the
+    // flange analyzer gets a different, known-good system prompt without reopening the
+    // prompt-injection hole this design was built to close.
+    const { messages, context, mode } = await req.json();
 
     if (!messages || !Array.isArray(messages)) {
       return new Response(JSON.stringify({ error: "messages required" }), {
@@ -87,12 +91,87 @@ HARD LIMITS — never cross these, ever:
 
 When professional support is warranted, recommend The Breastfeeding Mama team of IBCLCs for personalized pumping support and mention that virtual consultations are available. Be warm, concise, and encouraging.`;
 
+    const FLANGE_FIT_SYSTEM_PROMPT = `
+You are assessing flange fit using the Pump Coach CARE Check framework.
+CARE = Comfort · Alignment · Release · Emptying
+
+C — COMFORT: Pumping should feel like nothing or a very gentle tug.
+    Signs of too small: pinching, burning, stinging, nipple tip soreness, blanching (nipple turns white after removal), ridging or creasing of nipple after removal.
+    Signs of too large: deep breast aching or pulling sensation felt inside the breast.
+
+A — ALIGNMENT: The nipple should be centered in the tunnel with the sides lightly touching the walls.
+    There should be a slight, rhythmic back-and-forth motion — only the nipple, not the areola.
+    Too large: lots of space around the nipple, areola being pulled in, nipple moves side-to-side excessively.
+    Too small: nipple fills the entire tunnel wall-to-wall with no clearance, barely any movement.
+
+R — RELEASE: Milk should spray in streams, not drip.
+    Good fit supports a quick let-down (within ~2 minutes) and consistent flow throughout the session.
+    Poor fit or suction issues may cause slow or absent let-down, dripping instead of spraying, or flow that stops and starts.
+
+E — EMPTYING: A good fit maximizes milk removal and directly supports supply.
+    Breasts should feel soft and well-drained after a full session.
+    If breasts feel full or lumpy after pumping, the flange may be too small and not emptying well.
+    Declining output over time warrants a fit re-assessment.
+
+Sizing guidance:
+- Measure nipple diameter at the TIP (the widest point of the nipple itself — not the base, not the areola) in mm
+- Regular/rigid flanges: starting size = nipple tip diameter (no addition needed)
+- Soft inserts (Pumpin' Pals, Maymom, Legendairy Milk): starting size = nipple tip diameter + 1–2mm
+- Sizes range from 9mm to 40mm depending on brand
+- Always apply the correct rule based on whether the user uses a regular flange or soft inserts
+
+Many people need a different flange size on each breast — breasts are often asymmetrical. If the user's answers indicate this assessment is for one specific side, tailor every part of your response (including any size recommendation) to that side only, and don't assume it applies to the other side.
+
+The ideal fit: only the nipple enters the tunnel, sides lightly touch the walls, slight back-and-forth motion, milk sprays in streams, 15–20 min sessions, comfortable throughout.
+
+Always respond warmly and non-alarmingly. This is informational guidance, not clinical care.
+Recommend working with a certified IBCLC for in-person confirmation.
+
+The user has completed the Pump Coach CARE Check questionnaire. Using only their self-reported answers — comfort symptoms, nipple alignment observation, milk release pattern, emptying satisfaction, and pump/size measurements — provide a thorough flange fit assessment. Be specific about which answers drove your conclusions. Do not reference visual observations or anything you cannot know from their answers alone.
+
+Call the flange_fit_assessment tool with your assessment. Do not respond with plain text.`;
+
+    const isFlangeCheck = mode === "flange_fit_check";
+
     const body: Record<string, unknown> = {
       model:      "claude-sonnet-4-5",
       max_tokens: 1500,
       messages:   processedMessages,
-      system:     SYSTEM_PROMPT + (typeof context === "string" ? `\n\n[User context: ${context}]` : ""),
+      system:     isFlangeCheck
+        ? FLANGE_FIT_SYSTEM_PROMPT
+        : SYSTEM_PROMPT + (typeof context === "string" ? `\n\n[User context: ${context}]` : ""),
     };
+
+    // Structured output via forced tool-use, rather than asking the model to
+    // emit JSON inside plain text and regex-extracting it client-side — the
+    // latter is what silently broke before: this mode's dedicated system
+    // prompt wasn't being sent at all (server always used the generic chat
+    // prompt), so the model replied in prose with no JSON in it whatsoever.
+    // Forcing a tool call makes "the response isn't parseable" structurally
+    // impossible instead of just less likely.
+    if (isFlangeCheck) {
+      body.tools = [{
+        name: "flange_fit_assessment",
+        description: "Structured CARE Check flange fit assessment",
+        input_schema: {
+          type: "object",
+          properties: {
+            assessment:           { type: "string", enum: ["likely_too_small", "likely_too_large", "likely_good_fit", "unclear"] },
+            recommended_size_mm:  { type: ["number", "null"] },
+            confidence:           { type: "string", enum: ["high", "medium", "low"] },
+            care_c:               { type: "string", description: "1 sentence on Comfort based on their answers" },
+            care_a:               { type: "string", description: "1 sentence on Alignment based on their answers" },
+            care_r:               { type: "string", description: "1 sentence on Release based on their answers" },
+            care_e:               { type: "string", description: "1 sentence on Emptying based on their answers" },
+            explanation:          { type: "string", description: "2-3 warm sentences summarizing overall finding" },
+            tips:                 { type: "array", items: { type: "string" } },
+            see_ibclc:            { type: "boolean" },
+          },
+          required: ["assessment", "confidence", "care_c", "care_a", "care_r", "care_e", "explanation", "tips", "see_ibclc"],
+        },
+      }];
+      body.tool_choice = { type: "tool", name: "flange_fit_assessment" };
+    }
 
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method:  "POST",
@@ -115,7 +194,22 @@ When professional support is warranted, recommend The Breastfeeding Mama team of
       });
     }
 
-    const data    = await response.json();
+    const data = await response.json();
+
+    if (isFlangeCheck) {
+      const toolUse = (data.content ?? []).find((b: { type: string }) => b.type === "tool_use");
+      if (!toolUse) {
+        console.error("Flange fit check: no tool_use block in response", JSON.stringify(data));
+        return new Response(JSON.stringify({ error: "AI service did not return a structured assessment" }), {
+          status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      return new Response(JSON.stringify({ result: toolUse.input }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const content = data.content?.[0]?.text ?? "";
 
     return new Response(JSON.stringify({ content }), {
