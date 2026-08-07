@@ -23,6 +23,7 @@ import { Button } from "../../components/ui/Button";
 import { ConsultRecommendation } from "../../components/ConsultRecommendation";
 import { DatePickerField } from "../../components/ui/DatePickerField";
 import { babyAgeLabel, babyAgeWeeks } from "../../lib/formatters";
+import { formatReturnToWorkCountdown } from "../../lib/returnToWork";
 import { primaryBaby } from "../../lib/babies";
 import { COLORS, SERIF, PRIVACY_POLICY_URL, TERMS_OF_SERVICE_URL, MAX_OZ_NUMERIC } from "../../lib/constants";
 import { PumpingContext, Invitation, ViewerAccount, UserPump, Baby } from "../../types";
@@ -1275,7 +1276,13 @@ export default function ProfileScreen() {
                 : <SettingRow label="📊 Pump Comparison" value="Premium" disabled />
               }
               <Divider />
-              <SettingRow label="📅 Return to Work Planner" value="Coming soon" disabled />
+              <SettingRow
+                label="📅 Return to Work Planner"
+                value={profile?.return_to_work
+                  ? formatReturnToWorkCountdown(profile.return_to_work)
+                  : "Not set"}
+                onPress={() => router.push("/tools/return-to-work" as any)}
+              />
               <Divider />
               <SettingRow label="🌙 Weaning Mode" value="Coming soon" disabled />
             </View>
