@@ -130,6 +130,12 @@ export default function WelcomeScreen() {
               Invited to view someone's data? <Text style={{ color: COLORS.primary }}>Enter invite code →</Text>
             </Text>
           </Pressable>
+
+          <Pressable onPress={() => router.push("/(auth)/professional-sign-up" as any)} style={{ paddingVertical: 6 }}>
+            <Text style={{ color: COLORS.ink2, fontSize: 13, fontFamily: "Nunito_600SemiBold", fontWeight: "600", textAlign: "center" }}>
+              Are you a lactation consultant? <Text style={{ color: COLORS.primary }}>Create a provider account →</Text>
+            </Text>
+          </Pressable>
         </View>
 
         <Text style={{ fontSize: 11, color: COLORS.ink3, textAlign: "center", lineHeight: 17 }}>

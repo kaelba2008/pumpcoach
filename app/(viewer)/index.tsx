@@ -7,10 +7,11 @@ import { useAuthStore } from "../../store/authStore";
 import { COLORS, SERIF } from "../../lib/constants";
 import { fmtRelative } from "../../lib/formatters";
 import { useViewerAccess } from "../../hooks/useViewerAccess";
+import { ViewerAccountMenuLink } from "../../components/ViewerAccountMenuLink";
 
 export default function ViewerClientList() {
   const router = useRouter();
-  const { setViewingMode, signOut } = useAuthStore();
+  const { profile, setViewingMode } = useAuthStore();
   const { people, loading, refetch } = useViewerAccess();
 
   async function openClient(ownerId: string) {
@@ -31,18 +32,7 @@ export default function ViewerClientList() {
         <Text style={{ fontFamily: SERIF, fontSize: 22, color: COLORS.ink }}>
           Your Clients
         </Text>
-        <Pressable
-          hitSlop={12}
-          onPress={async () => {
-            await AsyncStorage.setItem("viewer_mode_pref", "own");
-            setViewingMode(null);
-            router.replace("/(tabs)" as any);
-          }}
-        >
-          <Text style={{ fontSize: 13, color: COLORS.primary, fontFamily: "Nunito_600SemiBold", fontWeight: "600" }}>
-            My Account
-          </Text>
-        </Pressable>
+        <ViewerAccountMenuLink fontSize={13} />
       </View>
 
       <ScrollView
@@ -56,8 +46,10 @@ export default function ViewerClientList() {
         ) : people.length === 0 ? (
           <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingTop: 80 }}>
             <Text style={{ fontSize: 40, marginBottom: 12 }}>👋</Text>
-            <Text style={{ fontSize: 14, color: COLORS.ink2, textAlign: "center" }}>
-              No one has shared their data with you yet
+            <Text style={{ fontSize: 14, color: COLORS.ink2, textAlign: "center", paddingHorizontal: 20, lineHeight: 20 }}>
+              {profile?.account_type === "professional"
+                ? "Once a mom invites you as her lactation consultant, her data will show up here."
+                : "No one has shared their data with you yet"}
             </Text>
           </View>
         ) : (

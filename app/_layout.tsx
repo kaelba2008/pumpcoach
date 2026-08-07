@@ -180,12 +180,16 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     const inWelcome       = seg0 === "welcome";
     const inOnboarding    = inAuth && seg1 === "onboarding";
     const inResetPassword = inAuth && seg1 === "reset-password";
+    // Owns its own post-signup routing (see app/(auth)/professional-sign-up.tsx) —
+    // must be excluded here or this effect can race that screen's own
+    // profile upsert and hijack into mom onboarding before it commits.
+    const inProfessionalSignUp = inAuth && seg1 === "professional-sign-up";
     const inViewer        = seg0 === "(viewer)";
     const inViewerInvite  = seg0 === "viewer-invite";
 
     if (session) {
       // Don't reroute users mid-flow
-      if (inResetPassword || inViewerInvite) return;
+      if (inResetPassword || inViewerInvite || inProfessionalSignUp) return;
 
       if ((inAuth && !inOnboarding) || inWelcome) {
         (async () => {
@@ -198,9 +202,13 @@ function AuthGate({ children }: { children: React.ReactNode }) {
           }
           // Check if this account is a viewer of someone else's data
           const ownerIds = await loadViewerStatus();
+          // A professional (provider-only) account should never land on
+          // /(tabs) — the mom UI — regardless of owner count or a stale
+          // "own" mode preference left over from some earlier state.
+          const isProfessional = profile.account_type === "professional";
           if (ownerIds.length > 0) {
             const modePref = await AsyncStorage.getItem("viewer_mode_pref");
-            if (modePref === "own") {
+            if (modePref === "own" && !isProfessional) {
               useAuthStore.getState().setViewingMode(null);
               router.replace("/(tabs)" as any);
             } else if (ownerIds.length === 1) {
@@ -209,6 +217,8 @@ function AuthGate({ children }: { children: React.ReactNode }) {
             } else {
               router.replace("/(viewer)" as any);
             }
+          } else if (isProfessional) {
+            router.replace("/(viewer)" as any);
           } else {
             router.replace("/(tabs)" as any);
           }

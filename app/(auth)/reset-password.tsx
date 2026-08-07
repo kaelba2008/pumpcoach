@@ -14,6 +14,7 @@ import { useAuthStore } from "../../store/authStore";
 export default function ResetPasswordScreen() {
   const router = useRouter();
   const setPasswordRecovery = useAuthStore((s) => s.setPasswordRecovery);
+  const profile = useAuthStore((s) => s.profile);
   const [password,  setPassword]  = useState("");
   const [confirm,   setConfirm]   = useState("");
   const [loading,   setLoading]   = useState(false);
@@ -44,7 +45,7 @@ export default function ResetPasswordScreen() {
     // Success — clear the recovery flag so normal routing resumes, then
     // route to tabs and show confirmation
     setPasswordRecovery(false);
-    router.replace("/(tabs)" as any);
+    router.replace(profile?.account_type === "professional" ? "/(viewer)" as any : "/(tabs)" as any);
     setTimeout(() => {
       Alert.alert("Password updated", "Your new password is set. You are now signed in.");
     }, 400);

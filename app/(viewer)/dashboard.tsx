@@ -6,20 +6,20 @@ import { useRouter } from "expo-router";
 import { useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { format, startOfDay, subDays } from "date-fns";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { supabase } from "../../lib/supabase";
 import { useAuthStore } from "../../store/authStore";
 import { COLORS, SERIF } from "../../lib/constants";
 import { fmtOz, getInitials } from "../../lib/formatters";
 import { ViewerDataDisplay } from "../../components/ViewerDataDisplay";
 import { PartnerSummaryView } from "../../components/PartnerSummaryView";
+import { ViewerAccountMenuLink } from "../../components/ViewerAccountMenuLink";
 import { useUnit } from "../../hooks/useUnit";
 import { PumpSession, Profile, Baby, NursingSession } from "../../types";
 import { primaryBaby } from "../../lib/babies";
 
 export default function ViewerDashboard() {
   const router = useRouter();
-  const { user, viewingOwnerId, setViewingMode, signOut } = useAuthStore();
+  const { user, viewingOwnerId, signOut } = useAuthStore();
   const { unit } = useUnit();
 
   const [ownerProfile, setOwnerProfile] = useState<Profile | null>(null);
@@ -137,18 +137,7 @@ export default function ViewerDashboard() {
           </Text>
         </View>
         <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
-          <Pressable
-            hitSlop={12}
-            onPress={async () => {
-              await AsyncStorage.setItem("viewer_mode_pref", "own");
-              setViewingMode(null);
-              router.replace("/(tabs)" as any);
-            }}
-          >
-            <Text style={{ fontSize: 12, color: COLORS.primary, fontFamily: "Nunito_600SemiBold", fontWeight: "600" }}>
-              My Account
-            </Text>
-          </Pressable>
+          <ViewerAccountMenuLink fontSize={12} />
           <Pressable onPress={handleLeaveAccess} hitSlop={12}>
             <Text style={{ fontSize: 12, color: COLORS.ink3, fontFamily: "Nunito_600SemiBold", fontWeight: "600" }}>
               Leave

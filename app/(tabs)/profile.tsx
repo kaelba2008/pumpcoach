@@ -390,6 +390,32 @@ export default function ProfileScreen() {
     setShowSharingModal(false);
   };
 
+  const handleConvertToProfessional = () => {
+    if (!user) return;
+    Alert.alert(
+      "Switch to a provider-only account",
+      "You'll be signed into your client dashboards instead of your own pumping data. Your existing baby and session data will stay saved under your account but won't be reachable from the app afterward. This can't be undone from here.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Switch",
+          style: "destructive",
+          onPress: async () => {
+            const { error } = await supabase.from("profiles").update({ account_type: "professional" }).eq("id", user.id);
+            if (error) {
+              Alert.alert("Could not switch account type", error.message);
+              return;
+            }
+            await loadProfile();
+            await AsyncStorage.removeItem("viewer_mode_pref");
+            setViewingMode(null);
+            router.replace("/(viewer)" as any);
+          },
+        },
+      ]
+    );
+  };
+
   const handleRevokeViewer = (v: ViewerAccount) => {
     const name = viewerProfiles[v.viewer_id] ?? "this viewer";
     Alert.alert(
@@ -1323,6 +1349,20 @@ export default function ProfileScreen() {
               </Text>
             </Pressable>
           </Card>
+        </View>
+
+        {/* Convert to a provider-only account — for lactation consultants who
+            signed up the normal way and want to switch to the client-list
+            experience instead of the mom-facing tabs. */}
+        <View className="mb-4">
+          <Pressable onPress={handleConvertToProfessional} style={{ paddingVertical: 4 }}>
+            <Text style={{ fontSize: 12, color: COLORS.ink3, lineHeight: 18 }}>
+              Are you a lactation consultant using your own account?{" "}
+              <Text style={{ color: COLORS.primary, fontFamily: "Nunito_600SemiBold", fontWeight: "600" }}>
+                Switch to a provider-only account →
+              </Text>
+            </Text>
+          </Pressable>
         </View>
 
         {/* Share data */}

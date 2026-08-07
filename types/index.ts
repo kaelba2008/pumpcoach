@@ -1,4 +1,5 @@
 export type SubscriptionTier = "free" | "premium" | "vip";
+export type AccountType = "parent" | "professional";
 export type PumpingContext =
   | "exclusive_pumping"
   | "equal_pumping_nursing"
@@ -30,6 +31,7 @@ export interface Profile {
   return_to_work: string | null;
   pumping_context: PumpingContext | null;
   subscription_tier: SubscriptionTier;
+  account_type: AccountType;
   timezone: string;
   onboarded_at: string | null;
   avatar_url: string | null;
