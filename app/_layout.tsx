@@ -197,14 +197,17 @@ function AuthGate({ children }: { children: React.ReactNode }) {
             return;
           }
           // Check if this account is a viewer of someone else's data
-          const ownerId = await loadViewerStatus();
-          if (ownerId) {
+          const ownerIds = await loadViewerStatus();
+          if (ownerIds.length > 0) {
             const modePref = await AsyncStorage.getItem("viewer_mode_pref");
             if (modePref === "own") {
               useAuthStore.getState().setViewingMode(null);
               router.replace("/(tabs)" as any);
-            } else {
+            } else if (ownerIds.length === 1) {
+              useAuthStore.getState().setViewingMode(ownerIds[0]);
               router.replace("/(viewer)/dashboard" as any);
+            } else {
+              router.replace("/(viewer)" as any);
             }
           } else {
             router.replace("/(tabs)" as any);

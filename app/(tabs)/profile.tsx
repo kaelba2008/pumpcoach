@@ -87,7 +87,7 @@ function titleCase(str: string) {
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { user, profile, babies, signOut, isPremium, loadProfile, knownOwnerId, setViewingMode } = useAuthStore();
+  const { user, profile, babies, signOut, isPremium, loadProfile, setViewingMode } = useAuthStore();
   const { people: clientsIView } = useViewerAccess();
   const { unit, changeUnit } = useUnit();
   const SKIP_GAP_ALERTS_KEY = "skip_gap_alerts_pref";
@@ -110,6 +110,7 @@ export default function ProfileScreen() {
   const [viewers,         setViewers]         = useState<ViewerAccount[]>([]);
   const [viewerProfiles,  setViewerProfiles]  = useState<Record<string, string>>({});
   const [sharingInviteEmail, setSharingInviteEmail] = useState("");
+  const [sharingInviteRole, setSharingInviteRole] = useState<"partner" | "ibclc">("partner");
   const [sharingBusy,     setSharingBusy]     = useState(false);
   const [showSharingModal, setShowSharingModal] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -313,7 +314,7 @@ export default function ProfileScreen() {
 
     const { data, error } = await supabase
       .from("invitations")
-      .insert({ owner_id: user.id, email: recipientEmail })
+      .insert({ owner_id: user.id, email: recipientEmail, viewer_role: sharingInviteRole })
       .select("token")
       .single();
 
@@ -385,6 +386,7 @@ export default function ProfileScreen() {
     }
 
     setSharingInviteEmail("");
+    setSharingInviteRole("partner");
     setShowSharingModal(false);
   };
 
@@ -1289,11 +1291,6 @@ export default function ProfileScreen() {
                     <Text style={{ fontSize: 14, fontFamily: "Nunito_700Bold", fontWeight: "700", color: COLORS.ink }}>
                       Client {person.initials}
                     </Text>
-                    {person.note && (
-                      <Text style={{ fontSize: 12, color: COLORS.ink3 }} numberOfLines={1}>
-                        {person.note.note_content}
-                      </Text>
-                    )}
                   </View>
                   <Text style={{ fontSize: 16, color: COLORS.ink3 }}>›</Text>
                 </Pressable>
@@ -1397,6 +1394,28 @@ export default function ProfileScreen() {
                 <Text style={{ fontSize: 14, color: COLORS.ink2, lineHeight: 20 }}>
                   Enter their email address and we'll open your mail app with a pre-written invite ready to send.
                 </Text>
+                <View>
+                  <Text style={{ fontSize: 13, color: COLORS.ink2, marginBottom: 6 }}>Who are you sharing with?</Text>
+                  <View style={{ flexDirection: "row", backgroundColor: COLORS.muted, borderRadius: 12, padding: 4 }}>
+                    {([
+                      { key: "partner" as const, label: "Partner" },
+                      { key: "ibclc" as const, label: "Lactation Consultant" },
+                    ]).map((opt) => (
+                      <Pressable
+                        key={opt.key}
+                        onPress={() => setSharingInviteRole(opt.key)}
+                        style={{
+                          flex: 1, paddingVertical: 8, borderRadius: 10, alignItems: "center",
+                          backgroundColor: sharingInviteRole === opt.key ? "#fff" : "transparent",
+                        }}
+                      >
+                        <Text style={{ fontSize: 13, fontFamily: "Nunito_600SemiBold", color: sharingInviteRole === opt.key ? COLORS.ink : COLORS.ink3 }}>
+                          {opt.label}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                </View>
                 <View>
                   <Text style={{ fontSize: 13, color: COLORS.ink2, marginBottom: 6 }}>Email address</Text>
                   <TextInput

@@ -265,6 +265,7 @@ export interface Invitation {
   email: string;
   token: string;
   status: "pending" | "accepted" | "revoked";
+  viewer_role: "partner" | "ibclc";
   expires_at: string;
   created_at: string;
   accepted_at: string | null;
@@ -275,15 +276,7 @@ export interface ViewerAccount {
   owner_id: string;
   viewer_id: string;
   viewer_email: string | null;
+  viewer_role: "partner" | "ibclc";
   label: string | null;
   created_at: string;
-}
-
-export interface ViewerNote {
-  id: string;
-  viewer_id: string;
-  viewing_user_id: string;
-  note_content: string;
-  created_at: string;
-  updated_at: string;
 }

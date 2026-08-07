@@ -551,6 +551,7 @@ export default function SnapshotScreen() {
   const [viewerNames,     setViewerNames]     = useState<Record<string, string>>({});
   const [showShareModal,  setShowShareModal]  = useState(false);
   const [inviteEmail,     setInviteEmail]     = useState("");
+  const [inviteRole,      setInviteRole]      = useState<"partner" | "ibclc">("partner");
   const [inviteBusy,      setInviteBusy]      = useState(false);
 
   const loadData = useCallback(async () => {
@@ -712,7 +713,7 @@ export default function SnapshotScreen() {
     setInviteBusy(true);
     const email = inviteEmail.trim().toLowerCase();
     await supabase.from("invitations").update({ status: "revoked" }).eq("owner_id", user.id).eq("email", email).eq("status", "pending");
-    const { data: inv, error } = await supabase.from("invitations").insert({ owner_id: user.id, email }).select("token").single();
+    const { data: inv, error } = await supabase.from("invitations").insert({ owner_id: user.id, email, viewer_role: inviteRole }).select("token").single();
     setInviteBusy(false);
     if (error || !inv) { Alert.alert("Error", error?.message ?? "Could not send invite"); return; }
     // Code-based acceptance, not a clickable link — see
@@ -738,6 +739,7 @@ export default function SnapshotScreen() {
       await Share.share({ message: body });
     }
     setInviteEmail("");
+    setInviteRole("partner");
     setShowShareModal(false);
     loadData();
   };
@@ -1304,6 +1306,26 @@ export default function SnapshotScreen() {
               <Text style={{ fontSize: 13, color: COLORS.ink2, lineHeight: 19 }}>
                 Enter their email address. They'll receive an invite to create a free Pump Coach account and view your data.
               </Text>
+              <Text style={{ fontSize: 12, color: COLORS.ink3, fontWeight: "600" }}>Who are you sharing with?</Text>
+              <View style={{ flexDirection: "row", backgroundColor: COLORS.muted, borderRadius: 12, padding: 4 }}>
+                {([
+                  { key: "partner" as const, label: "Partner" },
+                  { key: "ibclc" as const, label: "Lactation Consultant" },
+                ]).map((opt) => (
+                  <Pressable
+                    key={opt.key}
+                    onPress={() => setInviteRole(opt.key)}
+                    style={{
+                      flex: 1, paddingVertical: 8, borderRadius: 10, alignItems: "center",
+                      backgroundColor: inviteRole === opt.key ? "#fff" : "transparent",
+                    }}
+                  >
+                    <Text style={{ fontSize: 13, fontFamily: "Nunito_600SemiBold", color: inviteRole === opt.key ? COLORS.ink : COLORS.ink3 }}>
+                      {opt.label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
               <TextInput
                 value={inviteEmail}
                 onChangeText={setInviteEmail}

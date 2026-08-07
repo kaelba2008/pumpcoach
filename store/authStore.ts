@@ -22,7 +22,7 @@ interface AuthState {
   isPremium:      boolean;
   trialEndsAt:    Date | null;
   viewingOwnerId: string | null;  // non-null when currently viewing someone else's data
-  knownOwnerId:   string | null;  // non-null when user has a viewer relationship (persists through mode switches)
+  viewerOwnerIds: string[];       // every owner this account has viewer access to (persists through mode switches)
   // True from the moment a recovery deep link is detected until the reset
   // screen is dismissed. The normal "session exists -> route into the app"
   // effect must not fire during this window, and route segments alone
@@ -38,7 +38,7 @@ interface AuthState {
   loadProfile:            () => Promise<void>;
   signOut:                () => Promise<void>;
   refreshSubscription:    () => Promise<void>;
-  loadViewerStatus:       () => Promise<string | null>;
+  loadViewerStatus:       () => Promise<string[]>;
   setViewingMode:         (ownerId: string | null) => void;
 }
 
@@ -51,7 +51,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isPremium:      false,
   trialEndsAt:    null,
   viewingOwnerId: null,
-  knownOwnerId:   null,
+  viewerOwnerIds: [],
   isPasswordRecovery: false,
 
   setSession: (session) =>
@@ -128,15 +128,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   loadViewerStatus: async () => {
     const { user } = get();
-    if (!user) return null;
+    if (!user) return [];
     const { data } = await supabase
       .from("viewer_accounts")
       .select("owner_id")
-      .eq("viewer_id", user.id)
-      .maybeSingle();
-    const ownerId = data?.owner_id ?? null;
-    set({ knownOwnerId: ownerId, viewingOwnerId: ownerId });
-    return ownerId;
+      .eq("viewer_id", user.id);
+    const ownerIds = (data ?? []).map((r) => r.owner_id);
+    set({ viewerOwnerIds: ownerIds });
+    return ownerIds;
   },
 
   setViewingMode: (ownerId) => {
@@ -148,6 +147,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     signOutGoogle().catch(() => {});
     await logoutPurchases();
     await supabase.auth.signOut();
-    set({ session: null, user: null, profile: null, babies: [], isPremium: false, trialEndsAt: null, viewingOwnerId: null, knownOwnerId: null, isPasswordRecovery: false });
+    set({ session: null, user: null, profile: null, babies: [], isPremium: false, trialEndsAt: null, viewingOwnerId: null, viewerOwnerIds: [], isPasswordRecovery: false });
   },
 }));

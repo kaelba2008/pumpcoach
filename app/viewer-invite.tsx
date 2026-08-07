@@ -20,6 +20,7 @@ export default function ViewerInviteScreen() {
   const [ownerName,   setOwnerName]   = useState<string>("");
   const [inviteId,    setInviteId]    = useState<string>("");
   const [ownerId,     setOwnerId]     = useState<string>("");
+  const [viewerRole,  setViewerRole]  = useState<"partner" | "ibclc">("partner");
   const [manualToken, setManualToken] = useState("");
 
   const [email,       setEmail]       = useState("");
@@ -52,7 +53,7 @@ export default function ViewerInviteScreen() {
     const { data, error } = await supabase
       .rpc("get_invitation_preview", { p_token: tokenValue.trim() })
       .maybeSingle() as {
-        data: { id: string; owner_id: string; status: string; expires_at: string; owner_display_name: string | null } | null;
+        data: { id: string; owner_id: string; status: string; expires_at: string; owner_display_name: string | null; viewer_role: "partner" | "ibclc" } | null;
         error: { message: string } | null;
       };
 
@@ -61,6 +62,7 @@ export default function ViewerInviteScreen() {
 
     setInviteId(data.id);
     setOwnerId(data.owner_id);
+    setViewerRole(data.viewer_role);
     // Baby name isn't shown in this pre-acceptance preview — the babies
     // table's viewer-read RLS policy only grants access once a
     // viewer_accounts relationship exists, which isn't true yet here.
@@ -71,6 +73,7 @@ export default function ViewerInviteScreen() {
       // If already signed in, route directly; otherwise prompt sign-in to regain access.
       if (session) {
         await loadViewerStatus();
+        useAuthStore.getState().setViewingMode(data.owner_id);
         router.replace("/(viewer)/dashboard" as any);
         return;
       }
@@ -101,6 +104,7 @@ export default function ViewerInviteScreen() {
       owner_id:     owner,
       viewer_id:    session.user.id,
       viewer_email: session.user.email,
+      viewer_role:  viewerRole,
     });
 
     if (vaError) {
@@ -131,6 +135,7 @@ export default function ViewerInviteScreen() {
     }).eq("id", id);
 
     await loadViewerStatus();
+    useAuthStore.getState().setViewingMode(owner);
     setStep("done");
     setTimeout(() => router.replace("/(viewer)/dashboard" as any), 1200);
   }

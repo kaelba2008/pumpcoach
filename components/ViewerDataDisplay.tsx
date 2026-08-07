@@ -285,6 +285,15 @@ export function ViewerDataDisplay({ sessions, nursingSessions = [], personInitia
               : ""}
             . Useful for confirming this holds steady through a session-count change.
           </Text>
+          {analysis.removalRateTrend && (
+            <Text style={{ fontSize: 11, color: COLORS.ink2, marginTop: 8, lineHeight: 15, fontStyle: "italic" }}>
+              {analysis.removalRateTrend.arrow === "↘"
+                ? "Why this matters: a gradual decline across several days — not one low session — is the pattern worth watching."
+                : analysis.removalRateTrend.arrow === "↗"
+                ? "A sustained upward trend is a good sign of an effective routine."
+                : "Consistency day to day is itself a healthy sign."}
+            </Text>
+          )}
         </View>
       )}
 

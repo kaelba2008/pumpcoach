@@ -1,6 +1,6 @@
 import React, { useCallback, useState } from "react";
 import {
-  View, Text, ScrollView, Pressable, RefreshControl, Alert, Modal, TextInput,
+  View, Text, ScrollView, Pressable, RefreshControl, Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useFocusEffect } from "expo-router";
@@ -10,18 +10,12 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { supabase } from "../../lib/supabase";
 import { useAuthStore } from "../../store/authStore";
 import { COLORS, SERIF } from "../../lib/constants";
-import { fmtOz } from "../../lib/formatters";
+import { fmtOz, getInitials } from "../../lib/formatters";
 import { ViewerDataDisplay } from "../../components/ViewerDataDisplay";
+import { PartnerSummaryView } from "../../components/PartnerSummaryView";
 import { useUnit } from "../../hooks/useUnit";
-import { PumpSession, Profile, ViewerNote, Baby, NursingSession } from "../../types";
+import { PumpSession, Profile, Baby, NursingSession } from "../../types";
 import { primaryBaby } from "../../lib/babies";
-
-function getInitials(name: string | null | undefined): string {
-  if (!name) return "?";
-  const parts = name.trim().split(/\s+/);
-  if (parts.length === 1) return parts[0].substring(0, 1).toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-}
 
 export default function ViewerDashboard() {
   const router = useRouter();
@@ -33,11 +27,8 @@ export default function ViewerDashboard() {
   const [sessions,     setSessions]     = useState<PumpSession[]>([]);
   const [nursingSessions, setNursingSessions] = useState<NursingSession[]>([]);
   const [stashOz,      setStashOz]      = useState<number>(0);
-  const [note,         setNote]         = useState<ViewerNote | null>(null);
+  const [viewerRole,   setViewerRole]   = useState<"partner" | "ibclc">("ibclc");
   const [refreshing,   setRefreshing]   = useState(false);
-  const [showNoteModal, setShowNoteModal] = useState(false);
-  const [editingNote,   setEditingNote]   = useState("");
-  const [savingNote,    setSavingNote]    = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -51,7 +42,7 @@ export default function ViewerDashboard() {
     // 90 days of history for viewers (IBCLCs need to see trends)
     const since = subDays(new Date(), 90).toISOString();
 
-    const [profileRes, babiesRes, sessionsRes, nursingRes, stashRes, noteRes] = await Promise.all([
+    const [profileRes, babiesRes, sessionsRes, nursingRes, stashRes, accessRes] = await Promise.all([
       supabase.from("profiles").select("*").eq("id", viewingOwnerId).maybeSingle(),
       supabase.from("babies").select("*").eq("user_id", viewingOwnerId).order("created_at", { ascending: true }),
       supabase.from("pump_sessions")
@@ -69,10 +60,10 @@ export default function ViewerDashboard() {
         .eq("user_id", viewingOwnerId)
         .is("used_at", null)
         .is("discarded_at", null),
-      supabase.from("viewer_notes")
-        .select("*")
+      supabase.from("viewer_accounts")
+        .select("viewer_role")
         .eq("viewer_id", user.id)
-        .eq("viewing_user_id", viewingOwnerId)
+        .eq("owner_id", viewingOwnerId)
         .maybeSingle(),
     ]);
 
@@ -80,32 +71,11 @@ export default function ViewerDashboard() {
     setOwnerBabies((babiesRes.data ?? []) as Baby[]);
     if (sessionsRes.data) setSessions(sessionsRes.data as PumpSession[]);
     setNursingSessions((nursingRes.data ?? []) as NursingSession[]);
-    setNote((noteRes.data as ViewerNote) ?? null);
+    setViewerRole((accessRes.data?.viewer_role as "partner" | "ibclc") ?? "ibclc");
 
     const totalStash = (stashRes.data ?? []).reduce((sum, e) => sum + (e.oz ?? 0), 0);
     setStashOz(totalStash);
     setRefreshing(false);
-  }
-
-  async function handleSaveNote() {
-    if (!user || !viewingOwnerId) return;
-    setSavingNote(true);
-    const { error } = await supabase.from("viewer_notes").upsert(
-      {
-        viewer_id: user.id,
-        viewing_user_id: viewingOwnerId,
-        note_content: editingNote,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "viewer_id,viewing_user_id" }
-    );
-    setSavingNote(false);
-    if (error) {
-      Alert.alert("Error", "Could not save the note: " + error.message);
-      return;
-    }
-    setShowNoteModal(false);
-    loadData();
   }
 
   async function handleLeaveAccess() {
@@ -138,7 +108,7 @@ export default function ViewerDashboard() {
   const todayOz = todaySessions.reduce((sum, s) => sum + (s.total_oz ?? 0), 0);
   const todayNursing = nursingSessions.filter((n) => n.nursed_at >= today);
 
-  const initials = getInitials(ownerProfile?.display_name);
+  const initials = getInitials(ownerProfile?.display_name, ownerProfile?.email);
   const babyName = primaryBaby(ownerBabies)?.name;
   const goalOz = ownerProfile?.daily_goal_oz ?? null;
 
@@ -156,9 +126,16 @@ export default function ViewerDashboard() {
         alignItems: "center",
         justifyContent: "space-between",
       }}>
-        <Text style={{ fontSize: 12, color: COLORS.ink2, flex: 1, flexShrink: 1 }}>
-          Viewing <Text style={{ fontFamily: "Nunito_600SemiBold", fontWeight: "600", color: COLORS.ink }}>{initials}</Text>'s data
-        </Text>
+        <View style={{ flexDirection: "row", alignItems: "center", flex: 1, flexShrink: 1, gap: 10 }}>
+          <Pressable onPress={() => router.push("/(viewer)" as any)} hitSlop={12}>
+            <Text style={{ fontSize: 12, color: COLORS.primary, fontFamily: "Nunito_600SemiBold", fontWeight: "600" }}>
+              ← All clients
+            </Text>
+          </Pressable>
+          <Text style={{ fontSize: 12, color: COLORS.ink2, flex: 1, flexShrink: 1 }}>
+            Viewing <Text style={{ fontFamily: "Nunito_600SemiBold", fontWeight: "600", color: COLORS.ink }}>{initials}</Text>'s data
+          </Text>
+        </View>
         <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
           <Pressable
             hitSlop={12}
@@ -245,87 +222,29 @@ export default function ViewerDashboard() {
           </View>
         </View>
 
-        {/* My notes card */}
-        <Pressable
-          onPress={() => { setEditingNote(note?.note_content ?? ""); setShowNoteModal(true); }}
-          style={{
-            marginHorizontal: 20,
-            marginBottom: 16,
-            backgroundColor: COLORS.surface,
-            borderRadius: 16,
-            padding: 16,
-            borderWidth: 1,
-            borderColor: COLORS.border,
-          }}
-        >
-          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: note ? 8 : 0 }}>
-            <Text style={{ fontSize: 12, color: COLORS.ink3, textTransform: "uppercase", letterSpacing: 0.8 }}>
-              My Notes
-            </Text>
-            <Text style={{ fontSize: 12, color: COLORS.primary, fontFamily: "Nunito_600SemiBold", fontWeight: "600" }}>
-              {note ? "Edit →" : "+ Add note"}
-            </Text>
-          </View>
-          {note && (
-            <Text style={{ fontSize: 13, color: COLORS.ink2, lineHeight: 19 }} numberOfLines={4}>
-              {note.note_content}
-            </Text>
-          )}
-        </Pressable>
-
-        {/* Full data display: metrics, clickable graph, sessions grouped by day (90 days) */}
-        <ViewerDataDisplay
-          sessions={sessions}
-          nursingSessions={nursingSessions}
-          personInitials={initials}
-          unit={unit}
-        />
+        {/* Partner gets a slim summary; IBCLC gets the full clinical detail
+            view (with explainer copy) — see the IBCLC dashboard plan. */}
+        {viewerRole === "partner" ? (
+          <PartnerSummaryView
+            sessions={sessions}
+            nursingSessions={nursingSessions}
+            personInitials={initials}
+            unit={unit}
+          />
+        ) : (
+          <ViewerDataDisplay
+            sessions={sessions}
+            nursingSessions={nursingSessions}
+            personInitials={initials}
+            unit={unit}
+          />
+        )}
 
         {/* Read-only notice */}
         <Text style={{ fontSize: 11, color: COLORS.ink3, textAlign: "center", lineHeight: 16, paddingHorizontal: 20 }}>
           You have read-only access. Data can only be edited by the account owner.
         </Text>
       </ScrollView>
-
-      {/* Note editor modal */}
-      <Modal visible={showNoteModal} animationType="slide" presentationStyle="formSheet" onRequestClose={() => setShowNoteModal(false)}>
-        <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.cream }}>
-          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: COLORS.border }}>
-            <Pressable onPress={() => setShowNoteModal(false)} hitSlop={12}>
-              <Text style={{ fontSize: 15, color: COLORS.ink3, fontFamily: "Nunito_600SemiBold", fontWeight: "600" }}>Cancel</Text>
-            </Pressable>
-            <Text style={{ fontFamily: SERIF, fontSize: 18, color: COLORS.ink }}>My Notes</Text>
-            <Pressable onPress={handleSaveNote} hitSlop={12} disabled={savingNote}>
-              <Text style={{ fontSize: 15, color: COLORS.primary, fontFamily: "Nunito_700Bold", fontWeight: "700", opacity: savingNote ? 0.5 : 1 }}>
-                {savingNote ? "Saving…" : "Save"}
-              </Text>
-            </Pressable>
-          </View>
-          <ScrollView contentContainerStyle={{ padding: 20 }} keyboardShouldPersistTaps="handled">
-            <TextInput
-              value={editingNote}
-              onChangeText={setEditingNote}
-              placeholder="Observations, recommendations, things to follow up on…"
-              multiline
-              autoFocus
-              style={{
-                backgroundColor: "#fff",
-                borderWidth: 1,
-                borderColor: COLORS.border,
-                borderRadius: 12,
-                padding: 14,
-                fontSize: 14,
-                color: COLORS.ink,
-                minHeight: 180,
-                textAlignVertical: "top",
-              }}
-            />
-            <Text style={{ fontSize: 11, color: COLORS.ink3, marginTop: 10, lineHeight: 16 }}>
-              Notes are visible to you and to the person who shared their data with you.
-            </Text>
-          </ScrollView>
-        </SafeAreaView>
-      </Modal>
     </SafeAreaView>
   );
 }

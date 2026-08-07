@@ -14,6 +14,17 @@ export function removalRateTrendLabel(
   return { arrow: "→", text: "Holding steady" };
 }
 
+export function getInitials(name: string | null | undefined, email?: string | null): string {
+  if (name && name.trim()) {
+    const parts = name.trim().split(/\s+/);
+    if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  }
+  // No display name — fall back to the first two letters of their email
+  if (email && email.trim()) return email.trim().substring(0, 2).toUpperCase();
+  return "?";
+}
+
 export const fmtOz = (oz: number | null | undefined): string => {
   if (oz == null) return "—";
   return `${oz % 1 === 0 ? oz.toFixed(0) : oz.toFixed(1)} oz`;
