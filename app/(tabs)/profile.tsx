@@ -653,20 +653,36 @@ export default function ProfileScreen() {
   };
 
   const handleFlangeSize = () => {
-    const current = profile?.flange_size_mm ? String(profile.flange_size_mm) : "";
+    const currentRight = profile?.flange_size_mm_right ? String(profile.flange_size_mm_right) : "";
+    const currentLeft  = profile?.flange_size_mm_left  ? String(profile.flange_size_mm_left)  : "";
     const openAnalyzer = () => router.push("/tools/flange");
+    // Two sequential prompts — many people size differently per side, and
+    // Alert.prompt (iOS-only) can only collect one field at a time.
     const enterManually = () => {
       Alert.prompt(
-        "Flange size",
-        "Enter your flange size in mm (e.g. 21, 24, 28)",
-        async (text) => {
-          const mm = parseFloat(text);
-          if (!isNaN(mm) && mm > 0) {
-            await save({ flange_size_mm: mm });
-          }
+        "Flange size — right side",
+        "Enter your right-side flange size in mm (e.g. 21, 24, 28)",
+        async (rightText) => {
+          const right = parseFloat(rightText);
+          const rightValid = !isNaN(right) && right > 0;
+          Alert.prompt(
+            "Flange size — left side",
+            "Enter your left-side flange size in mm",
+            async (leftText) => {
+              const left = parseFloat(leftText);
+              const leftValid = !isNaN(left) && left > 0;
+              const update: Record<string, number> = {};
+              if (rightValid) update.flange_size_mm_right = right;
+              if (leftValid) update.flange_size_mm_left = left;
+              if (Object.keys(update).length > 0) await save(update);
+            },
+            "plain-text",
+            currentLeft,
+            "numeric"
+          );
         },
         "plain-text",
-        current,
+        currentRight,
         "numeric"
       );
     };
@@ -1110,7 +1126,13 @@ export default function ProfileScreen() {
               <Divider />
               <SettingRow
                 label="Flange size"
-                value={profile?.flange_size_mm ? `${profile.flange_size_mm}mm` : "Not set"}
+                value={
+                  profile?.flange_size_mm_right && profile?.flange_size_mm_left
+                    ? profile.flange_size_mm_right === profile.flange_size_mm_left
+                      ? `${profile.flange_size_mm_right}mm`
+                      : `R ${profile.flange_size_mm_right}mm · L ${profile.flange_size_mm_left}mm`
+                    : "Not set"
+                }
                 onPress={handleFlangeSize}
               />
               <Divider />

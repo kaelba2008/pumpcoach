@@ -76,10 +76,11 @@ interface SupplyIntelligence {
   stashOz: number;
   goalOz: number | null;
   stage: PostpartumStage | null;
-  flangeChange: FlangeChangeInsight | null;
+  flangeChange: FlangeChangeInsight[];
 }
 
 interface FlangeChangeInsight {
+  side: "right" | "left";
   fromSizeMm: number;
   toSizeMm: number;
   changedAt: Date;
@@ -92,10 +93,14 @@ interface FlangeChangeInsight {
 // Only meaningful going forward from when per-session flange tracking shipped —
 // there's no historical record of what flange was used before that, so this
 // can only detect changes made after a mom starts logging it (via the profile
-// default or the in-session FlangePicker override).
-function detectFlangeChange(sessions: { started_at: string; total_oz: number | null; flange_size_mm: number | null }[]): FlangeChangeInsight | null {
+// default or the in-session FlangePicker override). Run independently per side
+// since many people size differently on each side and may change just one.
+function detectFlangeChangeForSide(
+  sessions: { started_at: string; total_oz: number | null; sizeMm: number | null }[],
+  side: "right" | "left"
+): FlangeChangeInsight | null {
   const withFlange = sessions
-    .filter((s) => s.flange_size_mm != null)
+    .filter((s) => s.sizeMm != null)
     .sort((a, b) => new Date(a.started_at).getTime() - new Date(b.started_at).getTime());
   if (withFlange.length < 6) return null;
 
@@ -103,10 +108,10 @@ function detectFlangeChange(sessions: { started_at: string; total_oz: number | n
   const runs: { sizeMm: number; sessions: typeof withFlange }[] = [];
   for (const s of withFlange) {
     const last = runs[runs.length - 1];
-    if (last && last.sizeMm === s.flange_size_mm) {
+    if (last && last.sizeMm === s.sizeMm) {
       last.sessions.push(s);
     } else {
-      runs.push({ sizeMm: s.flange_size_mm as number, sessions: [s] });
+      runs.push({ sizeMm: s.sizeMm as number, sessions: [s] });
     }
   }
   if (runs.length < 2) return null; // no change ever recorded
@@ -122,6 +127,7 @@ function detectFlangeChange(sessions: { started_at: string; total_oz: number | n
   const pctChange = avgOzBefore > 0 ? ((avgOzAfter - avgOzBefore) / avgOzBefore) * 100 : 0;
 
   return {
+    side,
     fromSizeMm: beforeRun.sizeMm,
     toSizeMm: afterRun.sizeMm,
     changedAt: new Date(afterRun.sessions[0].started_at),
@@ -576,7 +582,7 @@ export default function SnapshotScreen() {
         supabase.from("stash_entries").select("oz").eq("user_id", user.id).is("used_at", null).is("discarded_at", null),
         supabase.from("user_pumps").select("id").eq("user_id", user.id),
         supabase.from("viewer_accounts").select("*").eq("owner_id", user.id),
-        supabase.from("pump_sessions").select("started_at, total_oz, flange_size_mm").eq("user_id", user.id).gte("started_at", since90).not("flange_size_mm", "is", null),
+        supabase.from("pump_sessions").select("started_at, total_oz, flange_size_mm_right, flange_size_mm_left").eq("user_id", user.id).gte("started_at", since90).or("flange_size_mm_right.not.is.null,flange_size_mm_left.not.is.null"),
         supabase.from("nursing_sessions").select("nursed_at").eq("user_id", user.id).gte("nursed_at", since7),
       ]);
       setPumpCount((pumpsRes.data ?? []).length);
@@ -661,7 +667,11 @@ export default function SnapshotScreen() {
       const supplyStatus = computeSupplyStatus(rolling24hOz, avgForSupplyStatus, trend, consistencyScore);
       const guidanceLevel = computeGuidance(supplyStatus, sessions7.filter((s) => (s.pain_level ?? 0) >= 6).length);
       const stage = getPostpartumStage(primaryBaby(babies)?.dob ?? null);
-      const flangeChange = detectFlangeChange(flangeSessionsRes.data ?? []);
+      const flangeSessions = flangeSessionsRes.data ?? [];
+      const flangeChange = [
+        detectFlangeChangeForSide(flangeSessions.map((s) => ({ ...s, sizeMm: s.flange_size_mm_right })), "right"),
+        detectFlangeChangeForSide(flangeSessions.map((s) => ({ ...s, sizeMm: s.flange_size_mm_left })), "left"),
+      ].filter((x): x is FlangeChangeInsight => x !== null);
 
       // Pain trend — same shared window/threshold logic as the supply trend,
       // just over pain_level instead of total_oz. Only sessions with an
@@ -1085,23 +1095,23 @@ export default function SnapshotScreen() {
                       this changed and here's what happened" moment, not just
                       another number. Only appears once there's an actual
                       detected change with enough sample on both sides. */}
-                  {data.flangeChange && (
-                    <View style={{
+                  {data.flangeChange.map((change) => (
+                    <View key={change.side} style={{
                       borderRadius: 16, padding: 16,
-                      backgroundColor: data.flangeChange.pctChange >= 0 ? "#F0FAF0" : "#FDF5EE",
-                      borderWidth: 1, borderColor: data.flangeChange.pctChange >= 0 ? "#C8E6CB" : "#F0DECA",
+                      backgroundColor: change.pctChange >= 0 ? "#F0FAF0" : "#FDF5EE",
+                      borderWidth: 1, borderColor: change.pctChange >= 0 ? "#C8E6CB" : "#F0DECA",
                     }}>
                       <Text style={{ fontSize: 13, fontFamily: "Nunito_700Bold", fontWeight: "700", color: COLORS.ink, marginBottom: 4 }}>
-                        🔬 Flange change noticed
+                        🔬 Flange change noticed — {change.side === "right" ? "right side" : "left side"}
                       </Text>
                       <Text style={{ fontSize: 13, color: COLORS.ink2, lineHeight: 19 }}>
-                        Since switching from {data.flangeChange.fromSizeMm}mm to {data.flangeChange.toSizeMm}mm
-                        on {format(data.flangeChange.changedAt, "MMM d")}, your average output has gone from{" "}
-                        {fmtOz(data.flangeChange.avgOzBefore)} to {fmtOz(data.flangeChange.avgOzAfter)}
-                        {" "}({data.flangeChange.pctChange >= 0 ? "+" : ""}{Math.round(data.flangeChange.pctChange)}%).
+                        Since switching from {change.fromSizeMm}mm to {change.toSizeMm}mm
+                        on {format(change.changedAt, "MMM d")}, your average output has gone from{" "}
+                        {fmtOz(change.avgOzBefore)} to {fmtOz(change.avgOzAfter)}
+                        {" "}({change.pctChange >= 0 ? "+" : ""}{Math.round(change.pctChange)}%).
                       </Text>
                     </View>
-                  )}
+                  ))}
 
                   {/* ── Guidance ── */}
                   <View style={{

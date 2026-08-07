@@ -119,7 +119,11 @@ export default function CoachScreen() {
     const parts = [
       babyContext,
       profile?.pump_brand ? `Pump: ${profile.pump_brand} ${profile.pump_model ?? ""}`.trim() : null,
-      profile?.flange_size_mm ? `Current flange: ${profile.flange_size_mm}mm` : null,
+      profile?.flange_size_mm_right && profile?.flange_size_mm_left
+        ? profile.flange_size_mm_right === profile.flange_size_mm_left
+          ? `Current flange: ${profile.flange_size_mm_right}mm`
+          : `Current flange: ${profile.flange_size_mm_right}mm right, ${profile.flange_size_mm_left}mm left`
+        : null,
       `Last 7 days: ${count} sessions, ${weekOz.toFixed(1)} oz total, avg ${avgOz} oz/session`,
       stashOz > 0 ? `Freezer stash: ${stashOz.toFixed(1)} oz` : null,
       profile?.daily_goal_oz ? `Daily goal: ${profile.daily_goal_oz} oz` : null,

@@ -331,8 +331,8 @@ export default function FlangeAnalyzerScreen() {
 
   const [step,         setStep]        = useState<Step>("side");
   const [side,         setSide]        = useState<FlangeSide | null>(null);
-  const [sizeRight,    setSizeRight]   = useState<number | null>(profile?.flange_size_mm ?? null);
-  const [sizeLeft,     setSizeLeft]    = useState<number | null>(profile?.flange_size_mm ?? null);
+  const [sizeRight,    setSizeRight]   = useState<number | null>(profile?.flange_size_mm_right ?? profile?.flange_size_mm ?? null);
+  const [sizeLeft,     setSizeLeft]    = useState<number | null>(profile?.flange_size_mm_left ?? profile?.flange_size_mm ?? null);
   const [nippleDiamRight, setNippleDiamRight] = useState("");
   const [nippleDiamLeft,  setNippleDiamLeft]  = useState("");
   const [pumpBrand,    setPumpBrand]   = useState(profile?.pump_brand ?? "");

@@ -27,6 +27,8 @@ export interface Profile {
   pump_brand: string | null;
   pump_model: string | null;
   flange_size_mm: number | null;
+  flange_size_mm_right: number | null;
+  flange_size_mm_left: number | null;
   daily_goal_oz: number | null;
   return_to_work: string | null;
   pumping_context: PumpingContext | null;
@@ -68,6 +70,8 @@ export interface PumpSession {
   pump_name: string | null;
   baby_name: string | null;
   flange_size_mm: number | null;
+  flange_size_mm_right: number | null;
+  flange_size_mm_left: number | null;
   flange_shape: FlangeShape | null;
   flange_material: FlangeMaterial | null;
   suction_level: number | null;

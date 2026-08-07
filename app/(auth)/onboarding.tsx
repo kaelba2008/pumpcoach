@@ -43,7 +43,8 @@ export default function OnboardingScreen() {
   const [lcSelection,    setLcSelection]    = useState<"yes" | "no" | "not_sure" | null>(null);
   const [pumpBrand,      setPumpBrand]      = useState("");
   const [pumpModel,      setPumpModel]      = useState("");
-  const [flangeSize,     setFlangeSize]     = useState<number | null>(null);
+  const [flangeSizeRight, setFlangeSizeRight] = useState<number | null>(null);
+  const [flangeSizeLeft,  setFlangeSizeLeft]  = useState<number | null>(null);
   const [dailyGoal,      setDailyGoal]      = useState("");
   // Caught inline on this step (not at finish()) because onboarding has no
   // back button — blocking submission on the LAST step over a bad value
@@ -72,7 +73,8 @@ export default function OnboardingScreen() {
       has_lactation_consultant: hasLc,
       pump_brand:               pumpBrand.trim() || null,
       pump_model:               pumpModel.trim() || null,
-      flange_size_mm:           flangeSize,
+      flange_size_mm_right:     flangeSizeRight,
+      flange_size_mm_left:      flangeSizeLeft,
       daily_goal_oz:            parsedGoal,
       onboarded_at:             new Date().toISOString(),
     });
@@ -494,35 +496,43 @@ export default function OnboardingScreen() {
                     autoCapitalize="words"
                     autoCorrect={false}
                   />
-                  <View style={{ gap: 8 }}>
+                  <View style={{ gap: 12 }}>
                     <Text style={{ fontSize: 13, fontWeight: "500", color: COLORS.ink2 }}>
                       Current flange size (optional)
                     </Text>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                      <View style={{ flexDirection: "row", gap: 8 }}>
-                        {FLANGE_SIZES_MM.map((mm) => (
-                          <Pressable
-                            key={mm}
-                            onPress={() => setFlangeSize(flangeSize === mm ? null : mm)}
-                            style={{
-                              paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12,
-                              borderWidth: 1.5,
-                              backgroundColor: flangeSize === mm ? COLORS.primary : COLORS.muted,
-                              borderColor: flangeSize === mm ? COLORS.primary : COLORS.border,
-                            }}
-                          >
-                            <Text style={{
-                              fontSize: 13, fontFamily: "Nunito_600SemiBold", fontWeight: "600",
-                              color: flangeSize === mm ? "#fff" : COLORS.ink,
-                            }}>
-                              {mm}mm
-                            </Text>
-                          </Pressable>
-                        ))}
+                    {([
+                      { label: "Right side", value: flangeSizeRight, setValue: setFlangeSizeRight },
+                      { label: "Left side",  value: flangeSizeLeft,  setValue: setFlangeSizeLeft },
+                    ]).map(({ label, value, setValue }) => (
+                      <View key={label} style={{ gap: 6 }}>
+                        <Text style={{ fontSize: 12, color: COLORS.ink3 }}>{label}</Text>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                          <View style={{ flexDirection: "row", gap: 8 }}>
+                            {FLANGE_SIZES_MM.map((mm) => (
+                              <Pressable
+                                key={mm}
+                                onPress={() => setValue(value === mm ? null : mm)}
+                                style={{
+                                  paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12,
+                                  borderWidth: 1.5,
+                                  backgroundColor: value === mm ? COLORS.primary : COLORS.muted,
+                                  borderColor: value === mm ? COLORS.primary : COLORS.border,
+                                }}
+                              >
+                                <Text style={{
+                                  fontSize: 13, fontFamily: "Nunito_600SemiBold", fontWeight: "600",
+                                  color: value === mm ? "#fff" : COLORS.ink,
+                                }}>
+                                  {mm}mm
+                                </Text>
+                              </Pressable>
+                            ))}
+                          </View>
+                        </ScrollView>
                       </View>
-                    </ScrollView>
+                    ))}
                     <Text style={{ fontSize: 12, color: COLORS.ink3 }}>
-                      Not sure? Our Flange Fit Analyzer can help after setup.
+                      Many people need a different size per side — that's normal. Not sure? Our Flange Fit Analyzer can help after setup.
                     </Text>
                   </View>
                 </View>

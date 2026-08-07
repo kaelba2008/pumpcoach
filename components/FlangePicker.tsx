@@ -17,10 +17,12 @@ const MATERIAL_OPTIONS: { value: FlangeMaterial; label: string }[] = [
 ];
 
 interface FlangePickerProps {
-  sizeMm: number | null;
+  sizeMmRight: number | null;
+  sizeMmLeft: number | null;
   shape: FlangeShape | null;
   material: FlangeMaterial | null;
-  onSizeChange: (value: number | null) => void;
+  onSizeRightChange: (value: number | null) => void;
+  onSizeLeftChange: (value: number | null) => void;
   onShapeChange: (value: FlangeShape | null) => void;
   onMaterialChange: (value: FlangeMaterial | null) => void;
 }
@@ -49,12 +51,20 @@ function Chip<T extends string>({
 // this stays out of the way unless a mom is deliberately trying something
 // different. Editing here only affects THIS session, not the profile default.
 export function FlangePicker({
-  sizeMm, shape, material, onSizeChange, onShapeChange, onMaterialChange,
+  sizeMmRight, sizeMmLeft, shape, material,
+  onSizeRightChange, onSizeLeftChange, onShapeChange, onMaterialChange,
 }: FlangePickerProps) {
   const [expanded, setExpanded] = useState(false);
 
+  const sizeSummary = sizeMmRight != null && sizeMmLeft != null && sizeMmRight === sizeMmLeft
+    ? `${sizeMmRight}mm`
+    : [
+        sizeMmRight != null ? `R ${sizeMmRight}mm` : null,
+        sizeMmLeft  != null ? `L ${sizeMmLeft}mm`  : null,
+      ].filter(Boolean).join(" · ") || null;
+
   const summary = [
-    sizeMm ? `${sizeMm}mm` : null,
+    sizeSummary,
     shape ? SHAPE_OPTIONS.find(o => o.value === shape)?.label : null,
     material ? MATERIAL_OPTIONS.find(o => o.value === material)?.label : null,
   ].filter(Boolean).join(" · ") || "Same as usual";
@@ -78,24 +88,34 @@ export function FlangePicker({
             Trying something different this session? Change it here without updating your profile default.
           </Text>
 
-          {/* Size */}
+          {/* Size — right and left, since many people size differently per side */}
           <Text className="text-xs text-ink-2 font-sans-semi mb-1.5">Size (mm)</Text>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 }}>
-            <Pressable
-              onPress={() => onSizeChange(Math.max(9, (sizeMm ?? 9) - 1))}
-              style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: COLORS.muted, alignItems: "center", justifyContent: "center" }}
-            >
-              <Text style={{ fontSize: 18, fontFamily: "Nunito_700Bold", fontWeight: "700", color: COLORS.ink }}>−</Text>
-            </Pressable>
-            <View style={{ flex: 1, borderWidth: 1, borderColor: COLORS.border, borderRadius: 8, alignItems: "center", paddingVertical: 8 }}>
-              <Text style={{ fontSize: 15, fontFamily: "Nunito_700Bold", fontWeight: "700", color: COLORS.ink }}>{sizeMm ?? "—"}</Text>
-            </View>
-            <Pressable
-              onPress={() => onSizeChange(Math.min(35, (sizeMm ?? 20) + 1))}
-              style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: COLORS.muted, alignItems: "center", justifyContent: "center" }}
-            >
-              <Text style={{ fontSize: 18, fontFamily: "Nunito_700Bold", fontWeight: "700", color: COLORS.ink }}>+</Text>
-            </Pressable>
+          <View style={{ flexDirection: "row", gap: 12, marginBottom: 12 }}>
+            {([
+              { label: "Right", value: sizeMmRight, onChange: onSizeRightChange },
+              { label: "Left",  value: sizeMmLeft,  onChange: onSizeLeftChange },
+            ]).map(({ label, value, onChange }) => (
+              <View key={label} style={{ flex: 1 }}>
+                <Text style={{ fontSize: 11, color: COLORS.ink3, marginBottom: 4 }}>{label}</Text>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <Pressable
+                    onPress={() => onChange(Math.max(9, (value ?? 9) - 1))}
+                    style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: COLORS.muted, alignItems: "center", justifyContent: "center" }}
+                  >
+                    <Text style={{ fontSize: 16, fontFamily: "Nunito_700Bold", fontWeight: "700", color: COLORS.ink }}>−</Text>
+                  </Pressable>
+                  <View style={{ flex: 1, borderWidth: 1, borderColor: COLORS.border, borderRadius: 8, alignItems: "center", paddingVertical: 7 }}>
+                    <Text style={{ fontSize: 14, fontFamily: "Nunito_700Bold", fontWeight: "700", color: COLORS.ink }}>{value ?? "—"}</Text>
+                  </View>
+                  <Pressable
+                    onPress={() => onChange(Math.min(35, (value ?? 20) + 1))}
+                    style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: COLORS.muted, alignItems: "center", justifyContent: "center" }}
+                  >
+                    <Text style={{ fontSize: 16, fontFamily: "Nunito_700Bold", fontWeight: "700", color: COLORS.ink }}>+</Text>
+                  </Pressable>
+                </View>
+              </View>
+            ))}
           </View>
 
           {/* Shape */}

@@ -57,7 +57,8 @@ export default function LogSessionScreen() {
   const [userPumps,          setUserPumps]          = useState<UserPump[]>([]);
   const [selectedPumpName,   setSelectedPumpName]   = useState<string | null>(null);
   const [selectedBabyName,   setSelectedBabyName]   = useState<string | null>(null);
-  const [flangeSizeMm,       setFlangeSizeMm]       = useState<number | null>(null);
+  const [flangeSizeMmRight,  setFlangeSizeMmRight]  = useState<number | null>(null);
+  const [flangeSizeMmLeft,   setFlangeSizeMmLeft]   = useState<number | null>(null);
   const [flangeShape,        setFlangeShape]        = useState<FlangeShape | null>(null);
   const [flangeMaterial,     setFlangeMaterial]     = useState<FlangeMaterial | null>(null);
 
@@ -113,10 +114,11 @@ export default function LogSessionScreen() {
   // Flange defaults: size from the profile default, shape/material from
   // whatever was last picked (no profile equivalent for those exists).
   useEffect(() => {
-    if (profile?.flange_size_mm) setFlangeSizeMm(profile.flange_size_mm);
+    if (profile?.flange_size_mm_right) setFlangeSizeMmRight(profile.flange_size_mm_right);
+    if (profile?.flange_size_mm_left) setFlangeSizeMmLeft(profile.flange_size_mm_left);
     AsyncStorage.getItem(LAST_FLANGE_SHAPE_KEY).then((v) => { if (v) setFlangeShape(v as FlangeShape); });
     AsyncStorage.getItem(LAST_FLANGE_MATERIAL_KEY).then((v) => { if (v) setFlangeMaterial(v as FlangeMaterial); });
-  }, [profile?.flange_size_mm]);
+  }, [profile?.flange_size_mm_right, profile?.flange_size_mm_left]);
 
   const displayTotal = logByTotal
     ? (parseFloat(totalOzValue) || 0)
@@ -177,7 +179,8 @@ export default function LogSessionScreen() {
       pumped_after_nursing:       pumpedAfterNursing,
       pump_name:                  selectedPumpName,
       baby_name:                  selectedBabyName,
-      flange_size_mm:             flangeSizeMm,
+      flange_size_mm_right:       flangeSizeMmRight,
+      flange_size_mm_left:        flangeSizeMmLeft,
       flange_shape:               flangeShape,
       flange_material:            flangeMaterial,
       suction_level:              suctionLevel,
@@ -348,10 +351,12 @@ export default function LogSessionScreen() {
             </View>
 
             <FlangePicker
-              sizeMm={flangeSizeMm}
+              sizeMmRight={flangeSizeMmRight}
+              sizeMmLeft={flangeSizeMmLeft}
               shape={flangeShape}
               material={flangeMaterial}
-              onSizeChange={setFlangeSizeMm}
+              onSizeRightChange={setFlangeSizeMmRight}
+              onSizeLeftChange={setFlangeSizeMmLeft}
               onShapeChange={setFlangeShape}
               onMaterialChange={setFlangeMaterial}
             />
