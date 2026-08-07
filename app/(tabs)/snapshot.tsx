@@ -4,6 +4,7 @@ import {
   Alert, Linking, Modal, TextInput, KeyboardAvoidingView, Platform, Share,
 } from "react-native";
 import * as MailComposer from "expo-mail-composer";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -19,6 +20,8 @@ import { PumpSession, StashEntry, ViewerAccount, NursingSession } from "../../ty
 import { PremiumTeaser } from "../../components/ui/PremiumTeaser";
 import { computeSupplyTrend, computeValueTrend, computeDailyTotalTrend } from "../../lib/patternDetection";
 import { dayTypeForDate, dayTypeForISO } from "../../lib/schedule";
+
+const FLANGE_TIP_DISMISSED_KEY = "flange_discovery_tip_dismissed";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -559,6 +562,16 @@ export default function SnapshotScreen() {
   const [inviteEmail,     setInviteEmail]     = useState("");
   const [inviteRole,      setInviteRole]      = useState<"partner" | "ibclc">("partner");
   const [inviteBusy,      setInviteBusy]      = useState(false);
+  const [flangeTipDismissed, setFlangeTipDismissed] = useState(true); // default hidden until AsyncStorage check resolves, avoids a flash
+
+  useEffect(() => {
+    AsyncStorage.getItem(FLANGE_TIP_DISMISSED_KEY).then((v) => setFlangeTipDismissed(v === "true"));
+  }, []);
+
+  const dismissFlangeTip = () => {
+    setFlangeTipDismissed(true);
+    AsyncStorage.setItem(FLANGE_TIP_DISMISSED_KEY, "true").catch(() => {});
+  };
 
   const loadData = useCallback(async () => {
     if (!user) {
@@ -1112,6 +1125,31 @@ export default function SnapshotScreen() {
                       </Text>
                     </View>
                   ))}
+
+                  {/* Discovery tip — most moms have no idea the flange-change
+                      comparison above exists until they stumble into it.
+                      Only shown once there's no real insight to show yet
+                      (once one appears, the tip would just be redundant). */}
+                  {data.flangeChange.length === 0 && !flangeTipDismissed && (
+                    <View style={{
+                      borderRadius: 16, padding: 16,
+                      backgroundColor: COLORS.primaryMist,
+                      borderWidth: 1, borderColor: COLORS.border,
+                      flexDirection: "row", gap: 10, alignItems: "flex-start",
+                    }}>
+                      <Text style={{ fontSize: 18 }}>💡</Text>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontSize: 13, color: COLORS.ink2, lineHeight: 19 }}>
+                          Log your flange size each session (in the pump session logger) and we'll tell you if a size change is helping.
+                        </Text>
+                        <Pressable onPress={dismissFlangeTip} hitSlop={8} style={{ marginTop: 8, alignSelf: "flex-start" }}>
+                          <Text style={{ fontSize: 12, fontFamily: "Nunito_700Bold", fontWeight: "700", color: COLORS.primary }}>
+                            Got it
+                          </Text>
+                        </Pressable>
+                      </View>
+                    </View>
+                  )}
 
                   {/* ── Guidance ── */}
                   <View style={{
