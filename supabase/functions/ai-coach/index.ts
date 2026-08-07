@@ -120,7 +120,7 @@ Sizing guidance:
 - Sizes range from 9mm to 40mm depending on brand
 - Always apply the correct rule based on whether the user uses a regular flange or soft inserts
 
-Many people need a different flange size on each breast — breasts are often asymmetrical. If the user's answers indicate this assessment is for one specific side, tailor every part of your response (including any size recommendation) to that side only, and don't assume it applies to the other side.
+Many people need a different flange size on each breast — breasts are often asymmetrical. The user may report a different current size (and different nipple diameter) for each side. Always return a recommended_size_mm_right AND a recommended_size_mm_left, even when you'd give the same number for both — never assume one side's answer applies to the other. If the user's answers indicate this assessment is really about one specific side's comfort/alignment/release/emptying, tailor the CARE breakdown and explanation to that side, but still fill in both recommended sizes using whatever measurements were given for each.
 
 The ideal fit: only the nipple enters the tunnel, sides lightly touch the walls, slight back-and-forth motion, milk sprays in streams, 15–20 min sessions, comfortable throughout.
 
@@ -156,18 +156,19 @@ Call the flange_fit_assessment tool with your assessment. Do not respond with pl
         input_schema: {
           type: "object",
           properties: {
-            assessment:           { type: "string", enum: ["likely_too_small", "likely_too_large", "likely_good_fit", "unclear"] },
-            recommended_size_mm:  { type: ["number", "null"] },
-            confidence:           { type: "string", enum: ["high", "medium", "low"] },
-            care_c:               { type: "string", description: "1 sentence on Comfort based on their answers" },
-            care_a:               { type: "string", description: "1 sentence on Alignment based on their answers" },
-            care_r:               { type: "string", description: "1 sentence on Release based on their answers" },
-            care_e:               { type: "string", description: "1 sentence on Emptying based on their answers" },
-            explanation:          { type: "string", description: "2-3 warm sentences summarizing overall finding" },
-            tips:                 { type: "array", items: { type: "string" } },
-            see_ibclc:            { type: "boolean" },
+            assessment:                 { type: "string", enum: ["likely_too_small", "likely_too_large", "likely_good_fit", "unclear"] },
+            recommended_size_mm_right:  { type: ["number", "null"], description: "Recommended size in mm for the right side, using whatever right-side measurements were given" },
+            recommended_size_mm_left:   { type: ["number", "null"], description: "Recommended size in mm for the left side, using whatever left-side measurements were given" },
+            confidence:                 { type: "string", enum: ["high", "medium", "low"] },
+            care_c:                     { type: "string", description: "1 sentence on Comfort based on their answers" },
+            care_a:                     { type: "string", description: "1 sentence on Alignment based on their answers" },
+            care_r:                     { type: "string", description: "1 sentence on Release based on their answers" },
+            care_e:                     { type: "string", description: "1 sentence on Emptying based on their answers" },
+            explanation:                { type: "string", description: "2-3 warm sentences summarizing overall finding" },
+            tips:                       { type: "array", items: { type: "string" } },
+            see_ibclc:                  { type: "boolean" },
           },
-          required: ["assessment", "confidence", "care_c", "care_a", "care_r", "care_e", "explanation", "tips", "see_ibclc"],
+          required: ["assessment", "recommended_size_mm_right", "recommended_size_mm_left", "confidence", "care_c", "care_a", "care_r", "care_e", "explanation", "tips", "see_ibclc"],
         },
       }];
       body.tool_choice = { type: "tool", name: "flange_fit_assessment" };

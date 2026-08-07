@@ -236,10 +236,12 @@ export type FlangeSide = "both" | "right" | "left";
 
 export interface FlangeFitInput {
   side: FlangeSide | null;
-  current_size_mm: number | null;
+  current_size_mm_right: number | null;
+  current_size_mm_left: number | null;
   pump_brand: string;
   flange_style: "regular" | "insert" | null;
-  nipple_diameter_mm: number | null;
+  nipple_diameter_mm_right: number | null;
+  nipple_diameter_mm_left: number | null;
   // CARE scores
   comfort_scores: ComfortScore[];
   alignment_score: AlignmentScore | null;
@@ -250,7 +252,8 @@ export interface FlangeFitInput {
 
 export interface FlangeFitResult {
   assessment: "likely_too_small" | "likely_too_large" | "likely_good_fit" | "unclear";
-  recommended_size_mm: number | null;
+  recommended_size_mm_right: number | null;
+  recommended_size_mm_left: number | null;
   confidence: "high" | "medium" | "low";
   // CARE breakdown
   care_c: string;

@@ -32,17 +32,31 @@ const SIDE_LABEL: Record<FlangeSide, string> = {
 // now lives server-side in the ai-coach edge function's "flange_fit_check"
 // mode — a client-supplied `system` string is never trusted or sent.
 function buildContextText(input: FlangeFitInput): string {
+  const sameBothSides =
+    input.current_size_mm_right === input.current_size_mm_left &&
+    input.nipple_diameter_mm_right === input.nipple_diameter_mm_left;
+
   return [
-    input.side                    && `Side being assessed: ${SIDE_LABEL[input.side]}${input.side !== "both" ? " only — tailor this assessment to this side specifically, it may differ from the other side" : ""}`,
-    input.pump_brand              && `Pump brand: ${input.pump_brand}`,
-    input.flange_style            && `Flange type: ${input.flange_style === "insert" ? "Soft insert" : "Regular/rigid flange"}`,
-    input.current_size_mm         && `Current flange size: ${input.current_size_mm}mm`,
-    input.nipple_diameter_mm      && `Nipple tip diameter (measured): ${input.nipple_diameter_mm}mm`,
-    input.comfort_scores.length   && `C — Comfort: ${input.comfort_scores.join(", ")}`,
-    input.alignment_score         && `A — Alignment: ${input.alignment_score}`,
-    input.release_score           && `R — Release: ${input.release_score}`,
-    input.emptying_score          && `E — Emptying: ${input.emptying_score}`,
-    input.session_duration_min    && `Session duration: ${input.session_duration_min} min`,
+    input.side                        && `Side being assessed: ${SIDE_LABEL[input.side]}${input.side !== "both" ? " — tailor the CARE breakdown and explanation to this side specifically, it may differ from the other side" : ""}`,
+    input.pump_brand                  && `Pump brand: ${input.pump_brand}`,
+    input.flange_style                && `Flange type: ${input.flange_style === "insert" ? "Soft insert" : "Regular/rigid flange"}`,
+    sameBothSides && input.current_size_mm_right
+      ? `Current flange size (both sides): ${input.current_size_mm_right}mm`
+      : [
+          input.current_size_mm_right && `Current flange size, right side: ${input.current_size_mm_right}mm`,
+          input.current_size_mm_left  && `Current flange size, left side: ${input.current_size_mm_left}mm`,
+        ].filter(Boolean).join("\n"),
+    sameBothSides && input.nipple_diameter_mm_right
+      ? `Nipple tip diameter (both sides, measured): ${input.nipple_diameter_mm_right}mm`
+      : [
+          input.nipple_diameter_mm_right && `Nipple tip diameter, right side (measured): ${input.nipple_diameter_mm_right}mm`,
+          input.nipple_diameter_mm_left  && `Nipple tip diameter, left side (measured): ${input.nipple_diameter_mm_left}mm`,
+        ].filter(Boolean).join("\n"),
+    input.comfort_scores.length       && `C — Comfort: ${input.comfort_scores.join(", ")}`,
+    input.alignment_score             && `A — Alignment: ${input.alignment_score}`,
+    input.release_score               && `R — Release: ${input.release_score}`,
+    input.emptying_score              && `E — Emptying: ${input.emptying_score}`,
+    input.session_duration_min        && `Session duration: ${input.session_duration_min} min`,
   ].filter(Boolean).join("\n");
 }
 
@@ -163,7 +177,7 @@ function ResultView({ result, side, onRetake, onClose, hasLactationConsultant }:
         )}
         <Text style={{ fontSize: 56 }}>{cfg.emoji}</Text>
         <Text style={{ fontSize: 24, fontFamily: "Nunito_800ExtraBold", fontWeight: "800", color: COLORS.ink, textAlign: "center" }}>{cfg.label}</Text>
-        {result.recommended_size_mm && (
+        {result.recommended_size_mm_right != null && result.recommended_size_mm_right === result.recommended_size_mm_left && (
           <View style={{
             backgroundColor: "rgba(124,92,252,0.08)", borderRadius: 16,
             paddingHorizontal: 24, paddingVertical: 12, alignItems: "center",
@@ -173,8 +187,30 @@ function ResultView({ result, side, onRetake, onClose, hasLactationConsultant }:
               Suggested size
             </Text>
             <Text style={{ fontSize: 36, fontWeight: "900", color: COLORS.primary }}>
-              {result.recommended_size_mm}mm
+              {result.recommended_size_mm_right}mm
             </Text>
+          </View>
+        )}
+        {result.recommended_size_mm_right != null && result.recommended_size_mm_left != null
+          && result.recommended_size_mm_right !== result.recommended_size_mm_left && (
+          <View style={{ flexDirection: "row", gap: 12 }}>
+            {([
+              { label: "Right", value: result.recommended_size_mm_right },
+              { label: "Left",  value: result.recommended_size_mm_left },
+            ]).map(({ label, value }) => (
+              <View key={label} style={{
+                backgroundColor: "rgba(124,92,252,0.08)", borderRadius: 16,
+                paddingHorizontal: 20, paddingVertical: 12, alignItems: "center",
+                borderWidth: 1, borderColor: "rgba(124,92,252,0.2)",
+              }}>
+                <Text style={{ fontSize: 11, color: COLORS.ink3, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>
+                  Suggested — {label}
+                </Text>
+                <Text style={{ fontSize: 30, fontWeight: "900", color: COLORS.primary }}>
+                  {value}mm
+                </Text>
+              </View>
+            ))}
           </View>
         )}
         <Text style={{ fontSize: 12, color: COLORS.ink3, textTransform: "capitalize" }}>
@@ -295,8 +331,10 @@ export default function FlangeAnalyzerScreen() {
 
   const [step,         setStep]        = useState<Step>("side");
   const [side,         setSide]        = useState<FlangeSide | null>(null);
-  const [currentSize,  setCurrentSize] = useState<number | null>(profile?.flange_size_mm ?? null);
-  const [nippleDiam,   setNippleDiam]  = useState("");
+  const [sizeRight,    setSizeRight]   = useState<number | null>(profile?.flange_size_mm ?? null);
+  const [sizeLeft,     setSizeLeft]    = useState<number | null>(profile?.flange_size_mm ?? null);
+  const [nippleDiamRight, setNippleDiamRight] = useState("");
+  const [nippleDiamLeft,  setNippleDiamLeft]  = useState("");
   const [pumpBrand,    setPumpBrand]   = useState(profile?.pump_brand ?? "");
   const [flangeStyle,  setFlangeStyle] = useState<"regular" | "insert" | null>(null);
   const [comfortScores,   setComfortScores]   = useState<ComfortScore[]>([]);
@@ -316,16 +354,18 @@ export default function FlangeAnalyzerScreen() {
   };
 
   const buildInput = (): FlangeFitInput => ({
-    side:                  side,
-    current_size_mm:      currentSize,
-    pump_brand:           pumpBrand,
-    flange_style:         flangeStyle,
-    nipple_diameter_mm:   nippleDiam ? parseFloat(nippleDiam) : null,
-    comfort_scores:       comfortScores,
-    alignment_score:      alignmentScore,
-    release_score:        releaseScore,
-    emptying_score:       emptyingScore,
-    session_duration_min: sessionMin ? parseInt(sessionMin) : null,
+    side:                      side,
+    current_size_mm_right:    sizeRight,
+    current_size_mm_left:     sizeLeft,
+    pump_brand:                pumpBrand,
+    flange_style:               flangeStyle,
+    nipple_diameter_mm_right: nippleDiamRight ? parseFloat(nippleDiamRight) : null,
+    nipple_diameter_mm_left:  nippleDiamLeft  ? parseFloat(nippleDiamLeft)  : null,
+    comfort_scores:             comfortScores,
+    alignment_score:            alignmentScore,
+    release_score:               releaseScore,
+    emptying_score:              emptyingScore,
+    session_duration_min:      sessionMin ? parseInt(sessionMin) : null,
   });
 
   const runAnalysis = async () => {
@@ -645,32 +685,40 @@ export default function FlangeAnalyzerScreen() {
                 </View>
               </View>
 
-              {/* Current flange size */}
+              {/* Current flange size — right and left, since many people size differently per side */}
               <View>
                 <Text style={{ fontSize: 13, fontFamily: "Nunito_600SemiBold", fontWeight: "600", color: COLORS.ink2, marginBottom: 8 }}>
                   Current flange size (mm)
                 </Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                  <View style={{ flexDirection: "row", gap: 8, paddingBottom: 4 }}>
-                    {FLANGE_SIZES_MM.map((mm) => (
-                      <Pressable
-                        key={mm}
-                        onPress={() => setCurrentSize(currentSize === mm ? null : mm)}
-                        style={{
-                          width: 52, paddingVertical: 10, borderRadius: 12, borderWidth: 1.5,
-                          alignItems: "center",
-                          borderColor: currentSize === mm ? COLORS.primary : COLORS.border,
-                          backgroundColor: currentSize === mm ? COLORS.primary : "#fff",
-                        }}
-                      >
-                        <Text style={{ fontSize: 13, fontFamily: "Nunito_700Bold", fontWeight: "700", color: currentSize === mm ? "#fff" : COLORS.ink }}>{mm}</Text>
-                        <Text style={{ fontSize: 10, color: currentSize === mm ? "rgba(255,255,255,0.7)" : COLORS.ink3 }}>mm</Text>
-                      </Pressable>
-                    ))}
+                {([
+                  { label: "Right side", value: sizeRight, setValue: setSizeRight },
+                  { label: "Left side",  value: sizeLeft,  setValue: setSizeLeft  },
+                ]).map(({ label, value, setValue }) => (
+                  <View key={label} style={{ marginBottom: 12 }}>
+                    <Text style={{ fontSize: 12, color: COLORS.ink3, marginBottom: 6 }}>{label}</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                      <View style={{ flexDirection: "row", gap: 8, paddingBottom: 4 }}>
+                        {FLANGE_SIZES_MM.map((mm) => (
+                          <Pressable
+                            key={mm}
+                            onPress={() => setValue(value === mm ? null : mm)}
+                            style={{
+                              width: 52, paddingVertical: 10, borderRadius: 12, borderWidth: 1.5,
+                              alignItems: "center",
+                              borderColor: value === mm ? COLORS.primary : COLORS.border,
+                              backgroundColor: value === mm ? COLORS.primary : "#fff",
+                            }}
+                          >
+                            <Text style={{ fontSize: 13, fontFamily: "Nunito_700Bold", fontWeight: "700", color: value === mm ? "#fff" : COLORS.ink }}>{mm}</Text>
+                            <Text style={{ fontSize: 10, color: value === mm ? "rgba(255,255,255,0.7)" : COLORS.ink3 }}>mm</Text>
+                          </Pressable>
+                        ))}
+                      </View>
+                    </ScrollView>
                   </View>
-                </ScrollView>
+                ))}
                 <Text style={{ fontSize: 12, color: COLORS.ink3, marginTop: 4 }}>
-                  Check the back of the flange or the box it came in.
+                  Check the back of the flange or the box it came in. Enter both if they differ, or just one if you use the same size on both sides.
                 </Text>
               </View>
 
@@ -703,17 +751,30 @@ export default function FlangeAnalyzerScreen() {
                 </View>
               </View>
 
-              {/* Nipple diameter */}
+              {/* Nipple diameter — right and left */}
               <View>
-                <Input
-                  label="Nipple tip diameter in mm (optional but very helpful)"
-                  value={nippleDiam}
-                  onChangeText={setNippleDiam}
-                  placeholder="e.g. 16"
-                  keyboardType="decimal-pad"
-                />
+                <View style={{ flexDirection: "row", gap: 12 }}>
+                  <View style={{ flex: 1 }}>
+                    <Input
+                      label="Nipple tip diameter, right (mm)"
+                      value={nippleDiamRight}
+                      onChangeText={setNippleDiamRight}
+                      placeholder="e.g. 16"
+                      keyboardType="decimal-pad"
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Input
+                      label="Nipple tip diameter, left (mm)"
+                      value={nippleDiamLeft}
+                      onChangeText={setNippleDiamLeft}
+                      placeholder="e.g. 16"
+                      keyboardType="decimal-pad"
+                    />
+                  </View>
+                </View>
                 <Text style={{ fontSize: 12, color: COLORS.ink3, marginTop: 4, lineHeight: 18 }}>
-                  Measure across the tip of the nipple, the widest point of the nipple itself, not the base or areola.
+                  Optional but very helpful. Measure across the tip of the nipple, the widest point of the nipple itself, not the base or areola.
                   {flangeStyle === "insert"
                     ? " For soft inserts, your starting size = this + 1–2mm."
                     : flangeStyle === "regular"
