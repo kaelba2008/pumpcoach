@@ -98,7 +98,7 @@ export default function WelcomeScreen() {
 
         {/* CTAs */}
         <View style={{ gap: 12, marginBottom: 24 }}>
-          <Pressable onPress={() => router.push("/(auth)/sign-up")}>
+          <Pressable onPress={() => router.push("/(auth)/choose-role" as any)}>
             <View style={{
               backgroundColor: COLORS.primary,
               borderRadius: 16, paddingVertical: 17,
@@ -128,12 +128,6 @@ export default function WelcomeScreen() {
           <Pressable onPress={() => router.push("/viewer-invite" as any)} style={{ paddingVertical: 6 }}>
             <Text style={{ color: COLORS.ink2, fontSize: 13, fontFamily: "Nunito_600SemiBold", fontWeight: "600", textAlign: "center" }}>
               Invited to view someone's data? <Text style={{ color: COLORS.primary }}>Enter invite code →</Text>
-            </Text>
-          </Pressable>
-
-          <Pressable onPress={() => router.push("/(auth)/professional-sign-up" as any)} style={{ paddingVertical: 6 }}>
-            <Text style={{ color: COLORS.ink2, fontSize: 13, fontFamily: "Nunito_600SemiBold", fontWeight: "600", textAlign: "center" }}>
-              Are you a lactation consultant? <Text style={{ color: COLORS.primary }}>Create a provider account →</Text>
             </Text>
           </Pressable>
         </View>
