@@ -142,6 +142,7 @@ function usePostSessionInsight(
   babyAgeWeeks: number,
   scheduleEnabled: boolean,
   scheduleAwayDays: number[],
+  scheduleEffectiveDate: string | null,
 ) {
   const [aiText,   setAiText]   = useState<string | null>(null);
   const [loading,  setLoading]  = useState(false);
@@ -160,6 +161,7 @@ function usePostSessionInsight(
         false,
         scheduleEnabled,
         scheduleAwayDays,
+        scheduleEffectiveDate,
       );
       if (!detected.length) return;
       const result = await getOrGenerateInsight(userId, detected[0]);
@@ -169,7 +171,7 @@ function usePostSessionInsight(
     } finally {
       setLoading(false);
     }
-  }, [enabled, userId, sessions, pumpingContext, accountCreatedAt, scheduleEnabled, scheduleAwayDays]);
+  }, [enabled, userId, sessions, pumpingContext, accountCreatedAt, scheduleEnabled, scheduleAwayDays, scheduleEffectiveDate]);
 
   useEffect(() => { if (enabled) load(); }, [load, enabled]);
 
@@ -205,6 +207,7 @@ export function SessionInsightSheet({
     babyAgeWeeks ?? 0,
     profile?.schedule_enabled ?? false,
     profile?.schedule_away_days ?? [],
+    profile?.schedule_effective_date ?? null,
   );
 
   const [stashOz,       setStashOz]       = useState(unit === "ml" ? String(Math.round(session.totalOz * 29.5735)) : String(session.totalOz));

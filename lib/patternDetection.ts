@@ -8,7 +8,7 @@
  *   needs_attention > mild > celebratory > informational
  */
 
-import { dayTypeForDate, dayTypeForISO, DayType } from "./schedule";
+import { dayTypeForDate, dayTypeForISO, isScheduleEffective, DayType } from "./schedule";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -239,6 +239,8 @@ export function detectPatterns(
   /** Weekly Schedule opt-in — declared away/home days, advisory only */
   scheduleEnabled = false,
   scheduleAwayDays: number[] = [],
+  /** Date the schedule actually takes effect — null means immediately */
+  scheduleEffectiveDate: string | null = null,
 ): DetectedPattern[] {
   const detected: DetectedPattern[] = [];
   const now = new Date();
@@ -397,7 +399,7 @@ export function detectPatterns(
   // skipGapAlerts = user opted in to "I nurse and pump — skip gap alerts"
   // A declared home day is the same idea, schedule-driven instead of
   // manually toggled — nursing-covered gaps there are expected, not a nag.
-  const todayDayTypeForGap = dayTypeForDate(scheduleEnabled, scheduleAwayDays, now);
+  const todayDayTypeForGap = dayTypeForDate(scheduleEnabled, scheduleAwayDays, now, scheduleEffectiveDate);
   if (!suppressedPatterns.has("long_gap_between_sessions") && !skipGapAlerts && todayDayTypeForGap !== "home") {
     const skipCtx: PumpingContext[] = ["mostly_nursing", "weaning", "equal_pumping_nursing"];
     if (!skipCtx.includes(pumpingContext) && last7.length >= 5) {
@@ -486,7 +488,7 @@ export function detectPatterns(
     // baseline. dayTypeForISO returns null when the schedule is off, so
     // recentTypes collapses to {null} and uniformType is null — exactly
     // today's behavior, unchanged.
-    const recentTypes = new Set(recentSessions.map(s => dayTypeForISO(scheduleEnabled, scheduleAwayDays, s.started_at)));
+    const recentTypes = new Set(recentSessions.map(s => dayTypeForISO(scheduleEnabled, scheduleAwayDays, s.started_at, scheduleEffectiveDate)));
     const uniformType: DayType = recentTypes.size === 1 ? [...recentTypes][0] : null;
 
     const baselineWindowDays = uniformType ? 14 : 7;
@@ -498,7 +500,7 @@ export function detectPatterns(
     });
     if (uniformType) {
       baselineSessions = baselineSessions.filter(
-        s => dayTypeForISO(scheduleEnabled, scheduleAwayDays, s.started_at) === uniformType
+        s => dayTypeForISO(scheduleEnabled, scheduleAwayDays, s.started_at, scheduleEffectiveDate) === uniformType
       );
     }
 
@@ -630,7 +632,7 @@ export function detectPatterns(
     // rather than relabel — the AI-generated copy would otherwise say
     // "your weekend" for e.g. a Tue/Wed/Thu schedule.
     const scheduleConflictsWithWeekend =
-      scheduleEnabled &&
+      isScheduleEffective(scheduleEnabled, scheduleEffectiveDate) &&
       scheduleAwayDays.length > 0 &&
       !scheduleAwayDays.every(d => d === 0 || d === 6);
     if (!skipCtx.includes(pumpingContext) && !scheduleConflictsWithWeekend) {
@@ -670,7 +672,7 @@ export function detectPatterns(
     // (already suppressed for work_pumping context above for the same
     // reason) — a mom who set one up shouldn't be told her routine is
     // "inconsistent" for doing exactly what she planned.
-    const hasActiveSchedule = scheduleEnabled && scheduleAwayDays.length > 0;
+    const hasActiveSchedule = isScheduleEffective(scheduleEnabled, scheduleEffectiveDate) && scheduleAwayDays.length > 0;
     if (!skipCtx.includes(pumpingContext) && !hasActiveSchedule) {
       const counts = dailySessionCounts(last7);
       const vals = Array.from(counts.values());

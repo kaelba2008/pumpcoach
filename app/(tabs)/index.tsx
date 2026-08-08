@@ -618,6 +618,7 @@ export default function DashboardScreen() {
                   skipGapAlerts={skipGapAlerts}
                   scheduleEnabled={profile?.schedule_enabled ?? false}
                   scheduleAwayDays={profile?.schedule_away_days ?? []}
+                  scheduleEffectiveDate={profile?.schedule_effective_date ?? null}
                 />
               ) : (
                 <PremiumTeaser

@@ -111,7 +111,7 @@ export default function ProfileScreen() {
   const [viewers,         setViewers]         = useState<ViewerAccount[]>([]);
   const [viewerProfiles,  setViewerProfiles]  = useState<Record<string, string>>({});
   const [sharingInviteEmail, setSharingInviteEmail] = useState("");
-  const [sharingInviteRole, setSharingInviteRole] = useState<"partner" | "ibclc">("partner");
+  const [sharingInviteRole, setSharingInviteRole] = useState<"partner" | "ibclc" | null>(null);
   const [sharingBusy,     setSharingBusy]     = useState(false);
   const [showSharingModal, setShowSharingModal] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -301,6 +301,10 @@ export default function ProfileScreen() {
 
   const handleCreateInvite = async () => {
     if (!user || !sharingInviteEmail.trim()) return;
+    if (!sharingInviteRole) {
+      Alert.alert("Who are you sharing with?", "Please choose Partner or Lactation Consultant before sending the invite.");
+      return;
+    }
     setSharingBusy(true);
 
     const recipientEmail = sharingInviteEmail.trim().toLowerCase();

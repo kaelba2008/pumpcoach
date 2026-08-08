@@ -283,11 +283,12 @@ function computeConsistency(
   accountCreatedAt: string,
   scheduleEnabled = false,
   scheduleAwayDays: number[] = [],
+  scheduleEffectiveDate: string | null = null,
 ): { score: number; label: string } {
-  const todayType = dayTypeForDate(scheduleEnabled, scheduleAwayDays, new Date());
+  const todayType = dayTypeForDate(scheduleEnabled, scheduleAwayDays, new Date(), scheduleEffectiveDate);
   if (todayType) {
     const sameType = (s: PumpSession) =>
-      dayTypeForISO(scheduleEnabled, scheduleAwayDays, s.started_at) === todayType;
+      dayTypeForISO(scheduleEnabled, scheduleAwayDays, s.started_at, scheduleEffectiveDate) === todayType;
     const sameType7 = sessions7.filter(sameType);
     const sameType14 = sessions14.filter(sameType);
     if (sameType14.length >= 4 && sameType7.length >= 2) {
@@ -560,7 +561,7 @@ export default function SnapshotScreen() {
   const [viewerNames,     setViewerNames]     = useState<Record<string, string>>({});
   const [showShareModal,  setShowShareModal]  = useState(false);
   const [inviteEmail,     setInviteEmail]     = useState("");
-  const [inviteRole,      setInviteRole]      = useState<"partner" | "ibclc">("partner");
+  const [inviteRole,      setInviteRole]      = useState<"partner" | "ibclc" | null>(null);
   const [inviteBusy,      setInviteBusy]      = useState(false);
   const [flangeTipDismissed, setFlangeTipDismissed] = useState(true); // default hidden until AsyncStorage check resolves, avoids a flash
 
@@ -651,6 +652,7 @@ export default function SnapshotScreen() {
         profile?.created_at ?? new Date().toISOString(),
         profile?.schedule_enabled ?? false,
         profile?.schedule_away_days ?? [],
+        profile?.schedule_effective_date ?? null,
       );
       // Shared with the pattern-detection insight engine (lib/patternDetection.ts)
       // so this screen and the AI-generated insights never disagree about
@@ -663,10 +665,10 @@ export default function SnapshotScreen() {
       // home day always looks like a "dip" against an away-day-inflated
       // weekly average (and vice versa).
       let avgForSupplyStatus = avg7dayPerDay;
-      const todayScheduleType = dayTypeForDate(profile?.schedule_enabled, profile?.schedule_away_days, new Date());
+      const todayScheduleType = dayTypeForDate(profile?.schedule_enabled, profile?.schedule_away_days, new Date(), profile?.schedule_effective_date);
       if (todayScheduleType) {
         const sameType = (s: PumpSession) =>
-          dayTypeForISO(profile?.schedule_enabled, profile?.schedule_away_days, s.started_at) === todayScheduleType;
+          dayTypeForISO(profile?.schedule_enabled, profile?.schedule_away_days, s.started_at, profile?.schedule_effective_date) === todayScheduleType;
         const typedDailyTotals = new Map<string, number>();
         sessions14.filter(sameType).forEach((s) => {
           const k = s.started_at.slice(0, 10);
@@ -733,6 +735,10 @@ export default function SnapshotScreen() {
 
   const handleSendInvite = async () => {
     if (!user || !inviteEmail.trim()) return;
+    if (!inviteRole) {
+      Alert.alert("Who are you sharing with?", "Please choose Partner or Lactation Consultant before sending the invite.");
+      return;
+    }
     setInviteBusy(true);
     const email = inviteEmail.trim().toLowerCase();
     await supabase.from("invitations").update({ status: "revoked" }).eq("owner_id", user.id).eq("email", email).eq("status", "pending");

@@ -42,6 +42,8 @@ export interface Profile {
   simple_mode: boolean;
   schedule_enabled: boolean;
   schedule_away_days: number[];
+  schedule_effective_date: string | null;
+  return_to_work_checklist_done: string[];
   created_at: string;
   updated_at: string;
 }

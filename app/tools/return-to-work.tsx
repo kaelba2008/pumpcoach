@@ -10,6 +10,7 @@ import { Button } from "../../components/ui/Button";
 import { DatePickerField } from "../../components/ui/DatePickerField";
 import { COLORS, SERIF } from "../../lib/constants";
 import { getReturnToWorkPhase } from "../../lib/returnToWork";
+import { checklistForPhase } from "../../lib/returnToWorkChecklist";
 
 export default function ReturnToWorkPlannerScreen() {
   const router = useRouter();
@@ -57,6 +58,39 @@ export default function ReturnToWorkPlannerScreen() {
   const showWorkPromptCard = phaseInfo?.phase === "returned"
     && profile?.pumping_context !== "work_pumping"
     && !dismissedWorkPrompt;
+
+  const checklistDone = new Set(profile?.return_to_work_checklist_done ?? []);
+  const checklistItems = checklistForPhase(phaseInfo?.phase ?? null);
+
+  const toggleChecklistItem = async (key: string) => {
+    if (!user) return;
+    const current = profile?.return_to_work_checklist_done ?? [];
+    const next = current.includes(key) ? current.filter((k) => k !== key) : [...current, key];
+    const { data, error } = await supabase
+      .from("profiles")
+      .update({ return_to_work_checklist_done: next })
+      .eq("id", user.id)
+      .select();
+    if (error || !data?.length) {
+      Alert.alert("Could not save", error?.message ?? "Please try again.");
+      return;
+    }
+    await loadProfile();
+  };
+
+  const goToLinkedTool = (linksTo: "stash_goal" | "weekly_schedule") => {
+    if (linksTo === "stash_goal") {
+      router.push({
+        pathname: "/(tabs)/stash",
+        params: { goalType: "return_to_work", targetDate: profile?.return_to_work ?? undefined },
+      } as any);
+    } else {
+      router.push({
+        pathname: "/weekly-schedule",
+        params: { effectiveDate: profile?.return_to_work ?? undefined },
+      } as any);
+    }
+  };
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.cream }} edges={["top"]}>
@@ -111,8 +145,53 @@ export default function ReturnToWorkPlannerScreen() {
           </View>
         )}
 
+        {checklistItems.length > 0 && (
+          <View style={{
+            backgroundColor: "#fff", borderRadius: 20, padding: 18,
+            borderWidth: 1, borderColor: COLORS.border, gap: 4,
+          }}>
+            <Text style={{ fontSize: 14, fontFamily: "Nunito_700Bold", fontWeight: "700", color: COLORS.ink, marginBottom: 8 }}>
+              Your checklist
+            </Text>
+            {checklistItems.map((item) => {
+              const done = checklistDone.has(item.key);
+              return (
+                <View key={item.key} style={{ flexDirection: "row", alignItems: "center", paddingVertical: 8, gap: 12 }}>
+                  <Pressable
+                    onPress={() => toggleChecklistItem(item.key)}
+                    style={{ flexDirection: "row", alignItems: "center", flex: 1, gap: 12 }}
+                  >
+                    <View style={{
+                      width: 22, height: 22, borderRadius: 11, borderWidth: 1.5,
+                      borderColor: done ? COLORS.primary : COLORS.border,
+                      backgroundColor: done ? COLORS.primary : "#fff",
+                      alignItems: "center", justifyContent: "center",
+                    }}>
+                      {done && <Text style={{ fontSize: 12, color: "#fff", fontFamily: "Nunito_700Bold", fontWeight: "700" }}>✓</Text>}
+                    </View>
+                    <Text style={{
+                      fontSize: 13, color: done ? COLORS.ink3 : COLORS.ink2, flex: 1, lineHeight: 18,
+                      textDecorationLine: done ? "line-through" : "none",
+                    }}>
+                      {item.label}
+                    </Text>
+                  </Pressable>
+                  {item.linksTo && (
+                    <Pressable onPress={() => goToLinkedTool(item.linksTo!)} hitSlop={8}>
+                      <Text style={{ fontSize: 14, color: COLORS.primary, fontFamily: "Nunito_700Bold", fontWeight: "700" }}>→</Text>
+                    </Pressable>
+                  )}
+                </View>
+              );
+            })}
+          </View>
+        )}
+
         {returnDate && (
-          <Pressable onPress={() => router.push("/(tabs)/stash")}>
+          <Pressable onPress={() => router.push({
+            pathname: "/(tabs)/stash",
+            params: { goalType: "return_to_work", targetDate: profile?.return_to_work ?? undefined },
+          } as any)}>
             <View style={{
               flexDirection: "row", alignItems: "center", gap: 12,
               backgroundColor: COLORS.primaryMist, borderRadius: 16, padding: 16,
@@ -131,7 +210,10 @@ export default function ReturnToWorkPlannerScreen() {
         )}
 
         {showScheduleCard && (
-          <Pressable onPress={() => router.push("/weekly-schedule" as any)}>
+          <Pressable onPress={() => router.push({
+            pathname: "/weekly-schedule",
+            params: { effectiveDate: profile?.return_to_work ?? undefined },
+          } as any)}>
             <View style={{
               flexDirection: "row", alignItems: "center", gap: 12,
               backgroundColor: COLORS.primaryMist, borderRadius: 16, padding: 16,

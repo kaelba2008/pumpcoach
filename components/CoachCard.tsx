@@ -52,6 +52,7 @@ interface CoachCardProps {
   /** Weekly Schedule opt-in — declared away/home days, advisory only */
   scheduleEnabled?: boolean;
   scheduleAwayDays?: number[];
+  scheduleEffectiveDate?: string | null;
 }
 
 // ── Static fallback (legacy logic) ───────────────────────────────────────────
@@ -175,12 +176,12 @@ export function CoachCard(props: CoachCardProps) {
   const router = useRouter();
   const {
     userId, sessions, pumpingContext, babyAgeWeeks, accountCreatedAt, skipGapAlerts,
-    scheduleEnabled, scheduleAwayDays,
+    scheduleEnabled, scheduleAwayDays, scheduleEffectiveDate,
   } = props;
 
   const todayDayType = useMemo(
-    () => dayTypeForDate(scheduleEnabled, scheduleAwayDays, new Date()),
-    [scheduleEnabled, scheduleAwayDays]
+    () => dayTypeForDate(scheduleEnabled, scheduleAwayDays, new Date(), scheduleEffectiveDate),
+    [scheduleEnabled, scheduleAwayDays, scheduleEffectiveDate]
   );
 
   const [insight,    setInsight]    = useState<GeneratedInsight | null>(null);
@@ -223,6 +224,7 @@ export function CoachCard(props: CoachCardProps) {
         skipGapAlerts ?? false,
         scheduleEnabled ?? false,
         scheduleAwayDays ?? [],
+        scheduleEffectiveDate ?? null,
       );
 
       if (!detected.length) {
@@ -250,7 +252,7 @@ export function CoachCard(props: CoachCardProps) {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [userId, sessions, pumpingContext, babyAgeWeeks, accountCreatedAt, loadSuppressed, scheduleEnabled, scheduleAwayDays]);
+  }, [userId, sessions, pumpingContext, babyAgeWeeks, accountCreatedAt, loadSuppressed, scheduleEnabled, scheduleAwayDays, scheduleEffectiveDate]);
 
   useEffect(() => { loadInsight(); }, [loadInsight]);
 

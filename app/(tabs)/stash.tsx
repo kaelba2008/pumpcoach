@@ -5,7 +5,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   addHours, addMonths, differenceInHours, differenceInDays,
@@ -596,19 +596,26 @@ type MilestoneMonths = 6 | 12 | 18 | 24 | "custom";
 
 function CreateGoalModal({
   onClose, onSaved, avgDailyOz, currentStashOz, existingGoal,
+  initialGoalType, initialTargetDate,
 }: {
   onClose: () => void;
   onSaved: () => void;
   avgDailyOz: number;
   currentStashOz: number;
   existingGoal?: StashGoal;
+  initialGoalType?: StashGoalType;
+  initialTargetDate?: string | null;
 }) {
   const isEdit = !!existingGoal;
   const { user, profile, babies } = useAuthStore();
-  const [step,              setStep]             = useState<GoalStep>(isEdit ? "details" : "type");
-  const [goalType,          setGoalType]         = useState<StashGoalType | null>(existingGoal?.goal_type ?? null);
-  const [goalName,          setGoalName]         = useState(existingGoal?.goal_name ?? "");
-  const [targetDate,        setTargetDate]       = useState<Date | null>(existingGoal?.target_date ? parseISO(existingGoal.target_date) : null);
+  const [step,              setStep]             = useState<GoalStep>(isEdit || initialGoalType ? "details" : "type");
+  const [goalType,          setGoalType]         = useState<StashGoalType | null>(existingGoal?.goal_type ?? initialGoalType ?? null);
+  const [goalName,          setGoalName]         = useState(existingGoal?.goal_name ?? (initialGoalType ? GOAL_META[initialGoalType].label : ""));
+  const [targetDate,        setTargetDate]       = useState<Date | null>(
+    existingGoal?.target_date ? parseISO(existingGoal.target_date)
+      : initialTargetDate ? parseISO(initialTargetDate)
+      : null
+  );
   const [babyOzPerDay,      setBabyOzPerDay]     = useState(existingGoal?.baby_oz_per_day != null ? String(existingGoal.baby_oz_per_day) : "");
 
   // return_to_work
@@ -1128,6 +1135,7 @@ function CreateGoalModal({
 
 export default function StashScreen() {
   const router = useRouter();
+  const { goalType: goalTypeParam, targetDate: targetDateParam } = useLocalSearchParams<{ goalType?: string; targetDate?: string }>();
   const { user, profile, isPremium, loadProfile } = useAuthStore();
   const [entries,       setEntries]       = useState<StashEntry[]>([]);
   const [goals,         setGoals]         = useState<StashGoal[]>([]);
@@ -1136,6 +1144,7 @@ export default function StashScreen() {
   const [editEntry,     setEditEntry]     = useState<StashEntry | null>(null);
   const [showGoal,      setShowGoal]      = useState(false);
   const [editGoal,      setEditGoal]      = useState<StashGoal | null>(null);
+  const [handledDeepLink, setHandledDeepLink] = useState(false);
   const [mythDismissed, setMythDismissed] = useState(false);
   const [renameModal,   setRenameModal]   = useState<{ id: string; name: string } | null>(null);
   const [renamingText,  setRenamingText]  = useState("");
@@ -1147,6 +1156,16 @@ export default function StashScreen() {
       if (v === "true") setMythDismissed(true);
     });
   }, []);
+
+  useEffect(() => {
+    if (goalTypeParam !== "return_to_work" || handledDeepLink) return;
+    setHandledDeepLink(true);
+    if (isPremium) {
+      setShowGoal(true);
+    } else {
+      router.push("/paywall" as any);
+    }
+  }, [goalTypeParam, isPremium, handledDeepLink]);
 
   const dismissMyth = async () => {
     setMythDismissed(true);
@@ -1346,6 +1365,8 @@ export default function StashScreen() {
           onSaved={loadGoals}
           avgDailyOz={avgDailyOz}
           currentStashOz={totalOz}
+          initialGoalType={goalTypeParam === "return_to_work" ? "return_to_work" : undefined}
+          initialTargetDate={targetDateParam}
         />
       )}
       {editGoal && (
