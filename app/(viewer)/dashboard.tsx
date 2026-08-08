@@ -28,6 +28,7 @@ export default function ViewerDashboard() {
   const [nursingSessions, setNursingSessions] = useState<NursingSession[]>([]);
   const [stashOz,      setStashOz]      = useState<number>(0);
   const [viewerRole,   setViewerRole]   = useState<"partner" | "ibclc">("ibclc");
+  const [notesByDate,  setNotesByDate]  = useState<Record<string, string>>({});
   const [refreshing,   setRefreshing]   = useState(false);
 
   useFocusEffect(
@@ -42,7 +43,7 @@ export default function ViewerDashboard() {
     // 90 days of history for viewers (IBCLCs need to see trends)
     const since = subDays(new Date(), 90).toISOString();
 
-    const [profileRes, babiesRes, sessionsRes, nursingRes, stashRes, accessRes] = await Promise.all([
+    const [profileRes, babiesRes, sessionsRes, nursingRes, stashRes, accessRes, notesRes] = await Promise.all([
       supabase.from("profiles").select("*").eq("id", viewingOwnerId).maybeSingle(),
       supabase.from("babies").select("*").eq("user_id", viewingOwnerId).order("created_at", { ascending: true }),
       supabase.from("pump_sessions")
@@ -65,6 +66,10 @@ export default function ViewerDashboard() {
         .eq("viewer_id", user.id)
         .eq("owner_id", viewingOwnerId)
         .maybeSingle(),
+      supabase.from("viewer_private_notes")
+        .select("note_date, content")
+        .eq("viewer_id", user.id)
+        .eq("owner_id", viewingOwnerId),
     ]);
 
     if (profileRes.data) setOwnerProfile(profileRes.data as Profile);
@@ -72,10 +77,26 @@ export default function ViewerDashboard() {
     if (sessionsRes.data) setSessions(sessionsRes.data as PumpSession[]);
     setNursingSessions((nursingRes.data ?? []) as NursingSession[]);
     setViewerRole((accessRes.data?.viewer_role as "partner" | "ibclc") ?? "ibclc");
+    setNotesByDate(
+      Object.fromEntries((notesRes.data ?? []).map((n) => [n.note_date, n.content]))
+    );
 
     const totalStash = (stashRes.data ?? []).reduce((sum, e) => sum + (e.oz ?? 0), 0);
     setStashOz(totalStash);
     setRefreshing(false);
+  }
+
+  async function saveNote(date: string, content: string) {
+    if (!user || !viewingOwnerId) return;
+    const { error } = await supabase.from("viewer_private_notes").upsert(
+      { viewer_id: user.id, owner_id: viewingOwnerId, note_date: date, content, updated_at: new Date().toISOString() },
+      { onConflict: "viewer_id,owner_id,note_date" }
+    );
+    if (error) {
+      Alert.alert("Could not save", error.message);
+      return;
+    }
+    setNotesByDate((prev) => ({ ...prev, [date]: content }));
   }
 
   async function handleLeaveAccess() {
@@ -226,6 +247,8 @@ export default function ViewerDashboard() {
             nursingSessions={nursingSessions}
             personInitials={initials}
             unit={unit}
+            notesByDate={notesByDate}
+            onSaveNote={saveNote}
           />
         )}
 

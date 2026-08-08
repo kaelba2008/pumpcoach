@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { View, Text, ScrollView, Pressable, Alert } from "react-native";
+import { View, Text, ScrollView, Pressable, Alert, TextInput } from "react-native";
 import { format, startOfDay, subDays } from "date-fns";
 import { PumpSession, NursingSession } from "../types";
 import { COLORS, SERIF, MIN_MEANINGFUL_SESSION_SEC } from "../lib/constants";
@@ -13,6 +13,11 @@ interface ViewerDataDisplayProps {
   nursingSessions?: NursingSession[];
   personInitials: string;
   unit: "oz" | "ml";
+  /** Private, viewer-only reminders keyed by "yyyy-MM-dd" — never shown to
+   *  the person being viewed. Optional so this component still works
+   *  standalone without the notes feature wired up. */
+  notesByDate?: Record<string, string>;
+  onSaveNote?: (date: string, content: string) => Promise<void>;
 }
 
 interface DayData {
@@ -25,8 +30,28 @@ interface DayData {
   count: number;
 }
 
-export function ViewerDataDisplay({ sessions, nursingSessions = [], personInitials, unit }: ViewerDataDisplayProps) {
+export function ViewerDataDisplay({ sessions, nursingSessions = [], personInitials, unit, notesByDate = {}, onSaveNote }: ViewerDataDisplayProps) {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [expandedNoteDate, setExpandedNoteDate] = useState<string | null>(null);
+  const [draftNote, setDraftNote] = useState("");
+  const [savingNote, setSavingNote] = useState(false);
+
+  const toggleNote = (date: string) => {
+    if (expandedNoteDate === date) {
+      setExpandedNoteDate(null);
+      return;
+    }
+    setDraftNote(notesByDate[date] ?? "");
+    setExpandedNoteDate(date);
+  };
+
+  const handleSaveNote = async (date: string) => {
+    if (!onSaveNote) return;
+    setSavingNote(true);
+    await onSaveNote(date, draftNote.trim());
+    setSavingNote(false);
+    setExpandedNoteDate(null);
+  };
 
   const analysis = useMemo(() => {
     if (sessions.length === 0 && nursingSessions.length === 0) return null;
@@ -404,6 +429,66 @@ export function ViewerDataDisplay({ sessions, nursingSessions = [], personInitia
                   </View>
                 ))}
             </View>
+
+            {/* Private reminders — visible only to this viewer, never to
+                the person being viewed. Deliberately not called "notes"
+                in any user-facing copy here, to keep that distinction
+                unambiguous in the UI itself. */}
+            {onSaveNote && (
+              <View style={{ marginTop: 8 }}>
+                <Pressable
+                  onPress={() => toggleNote(day.date)}
+                  style={{
+                    flexDirection: "row", alignItems: "center", gap: 6,
+                    paddingVertical: 6, paddingHorizontal: 2,
+                  }}
+                >
+                  <Text style={{ fontSize: 12 }}>🔒</Text>
+                  <Text style={{ fontSize: 12, color: COLORS.ink3, flex: 1 }} numberOfLines={1}>
+                    {notesByDate[day.date]
+                      ? notesByDate[day.date]
+                      : "My reminders (private — only you can see this)"}
+                  </Text>
+                  <Text style={{ fontSize: 11, color: COLORS.primary, fontFamily: "Nunito_600SemiBold", fontWeight: "600" }}>
+                    {notesByDate[day.date] ? "Edit" : "Add"}
+                  </Text>
+                </Pressable>
+
+                {expandedNoteDate === day.date && (
+                  <View style={{
+                    backgroundColor: "#fff", borderRadius: 12, borderWidth: 1, borderColor: COLORS.border,
+                    padding: 12, marginTop: 4,
+                  }}>
+                    <Text style={{ fontSize: 10, color: COLORS.ink3, marginBottom: 6, lineHeight: 14 }}>
+                      Private — only you can see this. Never shown to the person you're viewing.
+                    </Text>
+                    <TextInput
+                      value={draftNote}
+                      onChangeText={setDraftNote}
+                      placeholder="A private reminder for this day…"
+                      placeholderTextColor={COLORS.ink3}
+                      multiline
+                      style={{
+                        fontSize: 13, color: COLORS.ink, minHeight: 60, textAlignVertical: "top",
+                        backgroundColor: COLORS.muted, borderRadius: 8, padding: 8, marginBottom: 8,
+                      }}
+                    />
+                    <Pressable
+                      onPress={() => handleSaveNote(day.date)}
+                      disabled={savingNote}
+                      style={{
+                        alignSelf: "flex-end", paddingHorizontal: 14, paddingVertical: 7,
+                        borderRadius: 10, backgroundColor: COLORS.primary, opacity: savingNote ? 0.6 : 1,
+                      }}
+                    >
+                      <Text style={{ fontSize: 12, fontFamily: "Nunito_700Bold", fontWeight: "700", color: "#fff" }}>
+                        {savingNote ? "Saving…" : "Save"}
+                      </Text>
+                    </Pressable>
+                  </View>
+                )}
+              </View>
+            )}
           </View>
         ))}
       </View>
