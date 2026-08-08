@@ -1285,6 +1285,8 @@ export default function ProfileScreen() {
               />
               <Divider />
               <SettingRow label="🌙 Weaning Mode" value="Coming soon" disabled />
+              <Divider />
+              <SettingRow label="🐛 Report an issue" onPress={() => router.push("/report-issue" as any)} />
             </View>
           </Card>
         </View>
